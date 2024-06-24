@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,11 @@ package com.baomidou.mybatisplus.core.conditions.update;
 import com.baomidou.mybatisplus.core.conditions.AbstractWrapper;
 import com.baomidou.mybatisplus.core.conditions.SharedString;
 import com.baomidou.mybatisplus.core.conditions.segments.MergeSegments;
+import com.baomidou.mybatisplus.core.exceptions.MybatisPlusException;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.Constants;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
+import com.baomidou.mybatisplus.core.toolkit.sql.SqlInjectionUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +35,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author hubin miemie HCL
  * @since 2018-05-30
  */
-@SuppressWarnings("serial")
 public class UpdateWrapper<T> extends AbstractWrapper<T, String, UpdateWrapper<T>>
     implements Update<UpdateWrapper<T>, String> {
 
@@ -67,6 +68,28 @@ public class UpdateWrapper<T> extends AbstractWrapper<T, String, UpdateWrapper<T
         this.sqlFirst = sqlFirst;
     }
 
+
+    /**
+     * 检查 SQL 注入过滤
+     */
+    private boolean checkSqlInjection;
+
+    /**
+     * 开启检查 SQL 注入
+     */
+    public UpdateWrapper<T> checkSqlInjection() {
+        this.checkSqlInjection = true;
+        return this;
+    }
+
+    @Override
+    protected String columnToString(String column) {
+        if (checkSqlInjection && SqlInjectionUtils.check(column)) {
+            throw new MybatisPlusException("Discovering SQL injection column: " + column);
+        }
+        return column;
+    }
+
     @Override
     public String getSqlSet() {
         if (CollectionUtils.isEmpty(sqlSet)) {
@@ -84,16 +107,11 @@ public class UpdateWrapper<T> extends AbstractWrapper<T, String, UpdateWrapper<T
     }
 
     @Override
-    public UpdateWrapper<T> setSql(boolean condition, String sql) {
-        if (condition && StringUtils.isNotBlank(sql)) {
-            sqlSet.add(sql);
+    public UpdateWrapper<T> setSql(boolean condition, String setSql, Object... params) {
+        if (condition && StringUtils.isNotBlank(setSql)) {
+            sqlSet.add(formatSqlMaybeWithParam(setSql, params));
         }
         return typedThis;
-    }
-
-    @Override
-    protected String columnSqlInjectFilter(String column) {
-        return StringUtils.replaceBlank(column);
     }
 
     /**

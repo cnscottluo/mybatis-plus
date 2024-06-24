@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import java.lang.annotation.*;
  * java.util.Date,
  * java.sql.Timestamp,
  * java.time.LocalDateTime
+ * java.time.Instant
  *
  * @author TaoYu
  * @since 2016-01-23

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.apache.ibatis.executor.parameter.ParameterHandler;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.mapping.SqlSource;
+import org.apache.ibatis.parsing.XNode;
 import org.apache.ibatis.scripting.xmltags.XMLLanguageDriver;
 import org.apache.ibatis.session.Configuration;
 
@@ -46,6 +47,12 @@ public class MybatisXMLLanguageDriver extends XMLLanguageDriver {
     }
 
     @Override
+    public SqlSource createSqlSource(Configuration configuration, XNode script, Class<?> parameterType) {
+        MybatisXMLScriptBuilder builder = new MybatisXMLScriptBuilder(configuration, script, parameterType);
+        return builder.parseScriptNode();
+    }
+
+    @Override
     public SqlSource createSqlSource(Configuration configuration, String script, Class<?> parameterType) {
         GlobalConfig.DbConfig config = GlobalConfigUtils.getDbConfig(configuration);
         if (config.isReplacePlaceholder()) {
@@ -54,7 +61,7 @@ public class MybatisXMLLanguageDriver extends XMLLanguageDriver {
                 try {
                     script = SqlUtils.replaceSqlPlaceholder(script, find, config.getEscapeSymbol());
                 } catch (MybatisPlusException e) {
-                    throw new IncompleteElementException();
+                    throw new IncompleteElementException(e);
                 }
             }
         }

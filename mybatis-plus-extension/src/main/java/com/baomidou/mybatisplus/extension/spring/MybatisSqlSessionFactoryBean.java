@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,15 +19,11 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.MybatisPlusVersion;
 import com.baomidou.mybatisplus.core.MybatisSqlSessionFactoryBuilder;
 import com.baomidou.mybatisplus.core.MybatisXMLConfigBuilder;
+import com.baomidou.mybatisplus.core.MybatisXMLMapperBuilder;
 import com.baomidou.mybatisplus.core.config.GlobalConfig;
-import com.baomidou.mybatisplus.core.exceptions.MybatisPlusException;
-import com.baomidou.mybatisplus.core.handlers.MybatisEnumTypeHandler;
-import com.baomidou.mybatisplus.core.toolkit.Assert;
 import com.baomidou.mybatisplus.core.toolkit.GlobalConfigUtils;
-import com.baomidou.mybatisplus.core.toolkit.StringPool;
 import com.baomidou.mybatisplus.extension.toolkit.SqlHelper;
 import lombok.Setter;
-import org.apache.ibatis.builder.xml.XMLMapperBuilder;
 import org.apache.ibatis.cache.Cache;
 import org.apache.ibatis.executor.ErrorContext;
 import org.apache.ibatis.io.Resources;
@@ -40,20 +36,18 @@ import org.apache.ibatis.reflection.wrapper.ObjectWrapperFactory;
 import org.apache.ibatis.scripting.LanguageDriver;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.apache.ibatis.transaction.TransactionFactory;
 import org.apache.ibatis.type.TypeHandler;
-import org.apache.ibatis.type.TypeHandlerRegistry;
 import org.mybatis.logging.Logger;
 import org.mybatis.logging.LoggerFactory;
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.transaction.SpringManagedTransactionFactory;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.event.ContextRefreshedEvent;
-import org.springframework.core.NestedIOException;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
@@ -67,10 +61,14 @@ import javax.sql.DataSource;
 import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.IntFunction;
 import java.util.stream.Stream;
 
 import static org.springframework.util.Assert.notNull;
@@ -88,7 +86,7 @@ import static org.springframework.util.StringUtils.tokenizeToStringArray;
  * @author hubin
  * @since 2017-01-04
  */
-public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFactory>, InitializingBean, ApplicationListener<ApplicationEvent> {
+public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFactory>, InitializingBean, ApplicationListener<ContextRefreshedEvent> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MybatisSqlSessionFactoryBean.class);
 
@@ -97,7 +95,6 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
 
     private Resource configLocation;
 
-    // TODO 使用 MybatisConfiguration
     private MybatisConfiguration configuration;
 
     private Resource[] mapperLocations;
@@ -108,7 +105,12 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
 
     private Properties configurationProperties;
 
+    private SqlSessionFactoryBuilder sqlSessionFactoryBuilder = new MybatisSqlSessionFactoryBuilder();
+
     private SqlSessionFactory sqlSessionFactory;
+
+    private String environment = SqlSessionFactoryBean.class.getSimpleName();
+
 
     private boolean failFast;
 
@@ -117,6 +119,9 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
     private TypeHandler<?>[] typeHandlers;
 
     private String typeHandlersPackage;
+
+    @SuppressWarnings("rawtypes")
+    private Class<? extends TypeHandler> defaultEnumTypeHandler;
 
     private Class<?>[] typeAliases;
 
@@ -140,12 +145,14 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
     private ObjectWrapperFactory objectWrapperFactory;
 
     /**
-     * TODO 自定义枚举包
+     * 不再需要这个配置,放心删除
+     *
+     * @deprecated 2022-03-07
      */
     @Setter
+    @Deprecated
     private String typeEnumsPackage;
 
-    // TODO 自定义全局配置
     @Setter
     private GlobalConfig globalConfig;
 
@@ -272,6 +279,8 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
         this.typeHandlersPackage = typeHandlersPackage;
     }
 
+
+
     /**
      * Set type handlers. They must be annotated with {@code MappedTypes} and optionally with {@code MappedJdbcTypes}
      *
@@ -281,7 +290,16 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
     public void setTypeHandlers(TypeHandler<?>... typeHandlers) {
         this.typeHandlers = typeHandlers;
     }
-
+    /**
+     * Set the default type handler class for enum.
+     *
+     * @param defaultEnumTypeHandler The default type handler class for enum
+     * @since 2.0.5
+     */
+    public void setDefaultEnumTypeHandler(
+        @SuppressWarnings("rawtypes") Class<? extends TypeHandler> defaultEnumTypeHandler) {
+        this.defaultEnumTypeHandler = defaultEnumTypeHandler;
+    }
     /**
      * List of type aliases to register. They can be annotated with {@code Alias}
      *
@@ -315,7 +333,6 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
 
     /**
      * Set a customized MyBatis configuration.
-     * TODO 这里的入参使用 MybatisConfiguration 而不是 Configuration
      *
      * @param configuration MyBatis configuration
      * @since 1.3.0
@@ -382,23 +399,47 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
     }
 
     /**
-     * Set the MyBatis TransactionFactory to use. Default is {@code SpringManagedTransactionFactory}
+     * Sets the {@code SqlSessionFactoryBuilder} to use when creating the {@code SqlSessionFactory}.
      * <p>
-     * The default {@code SpringManagedTransactionFactory} should be appropriate for all cases:
-     * be it Spring transaction management, EJB CMT or plain JTA. If there is no active transaction,
-     * SqlSession operations will execute SQL statements non-transactionally.
+     * This is mainly meant for testing so that mock SqlSessionFactory classes can be injected. By default,
+     * {@code SqlSessionFactoryBuilder} creates {@code DefaultSqlSessionFactory} instances.
      *
-     * <b>It is strongly recommended to use the default {@code TransactionFactory}.</b> If not used, any
-     * attempt at getting an SqlSession through Spring's MyBatis framework will throw an exception if
-     * a transaction is active.
+     * @param sqlSessionFactoryBuilder
+     *          a SqlSessionFactoryBuilder
+     */
+    public void setSqlSessionFactoryBuilder(SqlSessionFactoryBuilder sqlSessionFactoryBuilder) {
+        this.sqlSessionFactoryBuilder = sqlSessionFactoryBuilder;
+    }
+
+    /**
+     * Set the MyBatis TransactionFactory to use. Default is {@code SpringManagedTransactionFactory}.
+     * <p>
+     * The default {@code SpringManagedTransactionFactory} should be appropriate for all cases: be it Spring transaction
+     * management, EJB CMT or plain JTA. If there is no active transaction, SqlSession operations will execute SQL
+     * statements non-transactionally.
+     * <p>
+     * <b>It is strongly recommended to use the default {@code TransactionFactory}.</b> If not used, any attempt at
+     * getting an SqlSession through Spring's MyBatis framework will throw an exception if a transaction is active.
      *
-     * @param transactionFactory the MyBatis TransactionFactory
      * @see SpringManagedTransactionFactory
+     *
+     * @param transactionFactory
+     *          the MyBatis TransactionFactory
      */
     public void setTransactionFactory(TransactionFactory transactionFactory) {
         this.transactionFactory = transactionFactory;
     }
 
+    /**
+     * <b>NOTE:</b> This class <em>overrides</em> any {@code Environment} you have set in the MyBatis config file. This is
+     * used only as a placeholder name. The default value is {@code SqlSessionFactoryBean.class.getSimpleName()}.
+     *
+     * @param environment
+     *          the environment name
+     */
+    public void setEnvironment(String environment) {
+        this.environment = environment;
+    }
     /**
      * Set scripting language drivers.
      *
@@ -420,6 +461,88 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
     }
 
     /**
+     * Add locations of MyBatis mapper files that are going to be merged into the {@code SqlSessionFactory} configuration
+     * at runtime.
+     * <p>
+     * This is an alternative to specifying "&lt;sqlmapper&gt;" entries in an MyBatis config file. This property being
+     * based on Spring's resource abstraction also allows for specifying resource patterns here: e.g.
+     * "classpath*:sqlmap/*-mapper.xml".
+     *
+     * @param mapperLocations
+     *          location of MyBatis mapper files
+     *
+     * @see #setMapperLocations(Resource...)
+     *
+     * @since 3.0.2
+     */
+    public void addMapperLocations(Resource... mapperLocations) {
+        setMapperLocations(appendArrays(this.mapperLocations, mapperLocations, Resource[]::new));
+    }
+
+    /**
+     * Add type handlers.
+     *
+     * @param typeHandlers
+     *          Type handler list
+     *
+     * @since 3.0.2
+     */
+    public void addTypeHandlers(TypeHandler<?>... typeHandlers) {
+        setTypeHandlers(appendArrays(this.typeHandlers, typeHandlers, TypeHandler[]::new));
+    }
+
+    /**
+     * Add scripting language drivers.
+     *
+     * @param scriptingLanguageDrivers
+     *          scripting language drivers
+     *
+     * @since 3.0.2
+     */
+    public void addScriptingLanguageDrivers(LanguageDriver... scriptingLanguageDrivers) {
+        setScriptingLanguageDrivers(
+            appendArrays(this.scriptingLanguageDrivers, scriptingLanguageDrivers, LanguageDriver[]::new));
+    }
+
+    /**
+     * Add Mybatis plugins.
+     *
+     * @param plugins
+     *          list of plugins
+     *
+     * @since 3.0.2
+     */
+    public void addPlugins(Interceptor... plugins) {
+        setPlugins(appendArrays(this.plugins, plugins, Interceptor[]::new));
+    }
+
+    /**
+     * Add type aliases.
+     *
+     * @param typeAliases
+     *          Type aliases list
+     *
+     * @since 3.0.2
+     */
+    public void addTypeAliases(Class<?>... typeAliases) {
+        setTypeAliases(appendArrays(this.typeAliases, typeAliases, Class[]::new));
+    }
+
+    private <T> T[] appendArrays(T[] oldArrays, T[] newArrays, IntFunction<T[]> generator) {
+        if (oldArrays == null) {
+            return newArrays;
+        } else {
+            if (newArrays == null) {
+                return oldArrays;
+            } else {
+                List<T> newList = new ArrayList<>(Arrays.asList(oldArrays));
+                newList.addAll(Arrays.asList(newArrays));
+                return newList.toArray(generator.apply(0));
+            }
+        }
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -427,9 +550,9 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
         notNull(dataSource, "Property 'dataSource' is required");
         state((configuration == null && configLocation == null) || !(configuration != null && configLocation != null),
             "Property 'configuration' and 'configLocation' can not specified with together");
-
         this.sqlSessionFactory = buildSqlSessionFactory();
     }
+
 
     /**
      * Build a {@code SqlSessionFactory} instance.
@@ -446,7 +569,6 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
 
         final Configuration targetConfiguration;
 
-        // TODO 使用 MybatisXmlConfigBuilder 而不是 XMLConfigBuilder
         MybatisXMLConfigBuilder xmlConfigBuilder = null;
         if (this.configuration != null) {
             targetConfiguration = this.configuration;
@@ -456,57 +578,18 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
                 targetConfiguration.getVariables().putAll(this.configurationProperties);
             }
         } else if (this.configLocation != null) {
-            // TODO 使用 MybatisXMLConfigBuilder
             xmlConfigBuilder = new MybatisXMLConfigBuilder(this.configLocation.getInputStream(), null, this.configurationProperties);
             targetConfiguration = xmlConfigBuilder.getConfiguration();
         } else {
             LOGGER.debug(() -> "Property 'configuration' or 'configLocation' not specified, using default MyBatis Configuration");
-            // TODO 使用 MybatisConfiguration
             targetConfiguration = new MybatisConfiguration();
             Optional.ofNullable(this.configurationProperties).ifPresent(targetConfiguration::setVariables);
         }
 
-        // TODO 无配置启动所必须的
         this.globalConfig = Optional.ofNullable(this.globalConfig).orElseGet(GlobalConfigUtils::defaults);
         this.globalConfig.setDbConfig(Optional.ofNullable(this.globalConfig.getDbConfig()).orElseGet(GlobalConfig.DbConfig::new));
 
-        // TODO 初始化 id-work 以及 打印骚东西
         GlobalConfigUtils.setGlobalConfig(targetConfiguration, this.globalConfig);
-
-        // TODO 自定义枚举类扫描处理
-        if (hasLength(this.typeEnumsPackage)) {
-            Set<Class<?>> classes;
-            if (typeEnumsPackage.contains(StringPool.STAR) && !typeEnumsPackage.contains(StringPool.COMMA)
-                && !typeEnumsPackage.contains(StringPool.SEMICOLON)) {
-                classes = scanClasses(typeEnumsPackage, null);
-                if (classes.isEmpty()) {
-                    LOGGER.warn(() -> "Can't find class in '[" + typeEnumsPackage + "]' package. Please check your configuration.");
-                }
-            } else {
-                classes = new HashSet<>();
-                String[] typeEnumsPackageArray = tokenizeToStringArray(this.typeEnumsPackage,
-                    ConfigurableApplicationContext.CONFIG_LOCATION_DELIMITERS);
-                Assert.notNull(typeEnumsPackageArray, "not find typeEnumsPackage:" + typeEnumsPackage);
-                Stream.of(typeEnumsPackageArray).forEach(typePackage -> {
-                    try {
-                        Set<Class<?>> scanTypePackage = scanClasses(typePackage, null);
-                        if (scanTypePackage.isEmpty()) {
-                            LOGGER.warn(() -> "Can't find class in '[" + typePackage + "]' package. Please check your configuration.");
-                        } else {
-                            classes.addAll(scanTypePackage);
-                        }
-                    } catch (IOException e) {
-                        throw new MybatisPlusException("Cannot scan class in '[" + typePackage + "]' package", e);
-                    }
-                });
-            }
-            // 取得类型转换注册器
-            TypeHandlerRegistry typeHandlerRegistry = targetConfiguration.getTypeHandlerRegistry();
-            classes.stream()
-                .filter(Class::isEnum)
-                .filter(MybatisEnumTypeHandler::isMpEnums)
-                .forEach(cls -> typeHandlerRegistry.register(cls, MybatisEnumTypeHandler.class));
-        }
 
         Optional.ofNullable(this.objectFactory).ifPresent(targetConfiguration::setObjectFactory);
         Optional.ofNullable(this.objectWrapperFactory).ifPresent(targetConfiguration::setObjectWrapperFactory);
@@ -545,20 +628,22 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
             });
         }
 
+        targetConfiguration.setDefaultEnumTypeHandler(defaultEnumTypeHandler);
+
         if (!isEmpty(this.scriptingLanguageDrivers)) {
             Stream.of(this.scriptingLanguageDrivers).forEach(languageDriver -> {
                 targetConfiguration.getLanguageRegistry().register(languageDriver);
                 LOGGER.debug(() -> "Registered scripting language driver: '" + languageDriver + "'");
             });
         }
-
-        Optional.ofNullable(this.defaultScriptingLanguageDriver).ifPresent(targetConfiguration::setDefaultScriptingLanguage);
+        Optional.ofNullable(this.defaultScriptingLanguageDriver)
+            .ifPresent(targetConfiguration::setDefaultScriptingLanguage);
 
         if (this.databaseIdProvider != null) {// fix #64 set databaseId before parse mapper xmls
             try {
                 targetConfiguration.setDatabaseId(this.databaseIdProvider.getDatabaseId(this.dataSource));
             } catch (SQLException e) {
-                throw new NestedIOException("Failed getting a databaseId", e);
+                throw new IOException("Failed getting a databaseId", e);
             }
         }
 
@@ -569,13 +654,13 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
                 xmlConfigBuilder.parse();
                 LOGGER.debug(() -> "Parsed configuration file: '" + this.configLocation + "'");
             } catch (Exception ex) {
-                throw new NestedIOException("Failed to parse config resource: " + this.configLocation, ex);
+                throw new IOException("Failed to parse config resource: " + this.configLocation, ex);
             } finally {
                 ErrorContext.instance().reset();
             }
         }
 
-        targetConfiguration.setEnvironment(new Environment(MybatisSqlSessionFactoryBean.class.getSimpleName(),
+        targetConfiguration.setEnvironment(new Environment(this.environment,
             this.transactionFactory == null ? new SpringManagedTransactionFactory() : this.transactionFactory,
             this.dataSource));
 
@@ -588,11 +673,11 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
                         continue;
                     }
                     try {
-                        XMLMapperBuilder xmlMapperBuilder = new XMLMapperBuilder(mapperLocation.getInputStream(),
+                        MybatisXMLMapperBuilder xmlMapperBuilder = new MybatisXMLMapperBuilder(mapperLocation.getInputStream(),
                             targetConfiguration, mapperLocation.toString(), targetConfiguration.getSqlFragments());
                         xmlMapperBuilder.parse();
                     } catch (Exception e) {
-                        throw new NestedIOException("Failed to parse mapping resource: '" + mapperLocation + "'", e);
+                        throw new IOException("Failed to parse mapping resource: '" + mapperLocation + "'", e);
                     } finally {
                         ErrorContext.instance().reset();
                     }
@@ -603,12 +688,10 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
             LOGGER.debug(() -> "Property 'mapperLocations' was not specified.");
         }
 
-        final SqlSessionFactory sqlSessionFactory = new MybatisSqlSessionFactoryBuilder().build(targetConfiguration);
+        final SqlSessionFactory sqlSessionFactory = this.sqlSessionFactoryBuilder.build(targetConfiguration);
 
-        // TODO SqlRunner
         SqlHelper.FACTORY = sqlSessionFactory;
 
-        // TODO 打印骚东西 Banner
         if (globalConfig.isBanner()) {
             System.out.println(" _ _   |_  _ _|_. ___ _ |    _ ");
             System.out.println("| | |\\/|_)(_| | |_\\  |_)||_|_\\ ");
@@ -651,8 +734,8 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
      * {@inheritDoc}
      */
     @Override
-    public void onApplicationEvent(ApplicationEvent event) {
-        if (failFast && event instanceof ContextRefreshedEvent) {
+    public void onApplicationEvent(ContextRefreshedEvent event) {
+        if (failFast) {
             // fail-fast -> check all statements are completed
             this.sqlSessionFactory.getConfiguration().getMappedStatementNames();
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,11 @@ import com.baomidou.mybatisplus.core.conditions.SharedString;
 import com.baomidou.mybatisplus.core.conditions.segments.MergeSegments;
 import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
-import com.baomidou.mybatisplus.core.toolkit.ArrayUtils;
 import com.baomidou.mybatisplus.core.toolkit.Assert;
+import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
@@ -34,7 +35,6 @@ import java.util.function.Predicate;
  * @author hubin miemie HCL
  * @since 2017-05-26
  */
-@SuppressWarnings("serial")
 public class LambdaQueryWrapper<T> extends AbstractLambdaWrapper<T, LambdaQueryWrapper<T>>
     implements Query<LambdaQueryWrapper<T>, T, SFunction<T, ?>> {
 
@@ -72,18 +72,9 @@ public class LambdaQueryWrapper<T> extends AbstractLambdaWrapper<T, LambdaQueryW
         this.sqlFirst = sqlFirst;
     }
 
-    /**
-     * SELECT 部分 SQL 设置
-     *
-     * @param columns 查询字段
-     */
-    @SafeVarargs
     @Override
-    public final LambdaQueryWrapper<T> select(SFunction<T, ?>... columns) {
-        if (ArrayUtils.isNotEmpty(columns)) {
-            this.sqlSelect.setStringValue(columnsToString(false, columns));
-        }
-        return typedThis;
+    public LambdaQueryWrapper<T> select(boolean condition, List<SFunction<T, ?>> columns) {
+        return doSelect(condition, columns);
     }
 
     /**
@@ -106,6 +97,28 @@ public class LambdaQueryWrapper<T> extends AbstractLambdaWrapper<T, LambdaQueryW
         }
         Assert.notNull(entityClass, "entityClass can not be null");
         this.sqlSelect.setStringValue(TableInfoHelper.getTableInfo(entityClass).chooseSelect(predicate));
+        return typedThis;
+    }
+
+    @Override
+    @SafeVarargs
+    public final LambdaQueryWrapper<T> select(SFunction<T, ?>... columns) {
+        return doSelect(true, CollectionUtils.toList(columns));
+    }
+
+    @Override
+    @SafeVarargs
+    public final LambdaQueryWrapper<T> select(boolean condition, SFunction<T, ?>... columns) {
+        return doSelect(condition, CollectionUtils.toList(columns));
+    }
+
+    /**
+     * @since 3.5.4
+     */
+    protected LambdaQueryWrapper<T> doSelect(boolean condition, List<SFunction<T, ?>> columns) {
+        if (condition && CollectionUtils.isNotEmpty(columns)) {
+            this.sqlSelect.setStringValue(columnsToString(false, columns));
+        }
         return typedThis;
     }
 

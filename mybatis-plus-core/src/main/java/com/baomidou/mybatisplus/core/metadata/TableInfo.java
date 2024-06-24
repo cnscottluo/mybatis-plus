@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,7 @@ package com.baomidou.mybatisplus.core.metadata;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.KeySequence;
-import com.baomidou.mybatisplus.core.toolkit.Assert;
-import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
-import com.baomidou.mybatisplus.core.toolkit.Constants;
-import com.baomidou.mybatisplus.core.toolkit.StringUtils;
+import com.baomidou.mybatisplus.core.toolkit.*;
 import com.baomidou.mybatisplus.core.toolkit.sql.SqlScriptUtils;
 import lombok.AccessLevel;
 import lombok.Data;
@@ -30,9 +27,14 @@ import lombok.experimental.Accessors;
 import org.apache.ibatis.mapping.ResultFlag;
 import org.apache.ibatis.mapping.ResultMap;
 import org.apache.ibatis.mapping.ResultMapping;
+import org.apache.ibatis.reflection.Reflector;
 import org.apache.ibatis.session.Configuration;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
@@ -47,7 +49,6 @@ import static java.util.stream.Collectors.joining;
 @Data
 @Setter(AccessLevel.PACKAGE)
 @Accessors(chain = true)
-@SuppressWarnings("serial")
 public class TableInfo implements Constants {
 
     /**
@@ -101,8 +102,12 @@ public class TableInfo implements Constants {
     private String currentNamespace;
     /**
      * MybatisConfiguration 标记 (Configuration内存地址值)
+     *
+     * @deprecated 3.5.3.2 初始化阶段可以使用一下,后期尽量避免在容器初始化完成之后再继续调用此方法
      */
     @Getter
+    @Setter(AccessLevel.NONE)
+    @Deprecated
     private Configuration configuration;
     /**
      * 是否开启下划线转驼峰
@@ -174,12 +179,25 @@ public class TableInfo implements Constants {
     /**
      * 排序列表
      */
-    @Getter
     @Setter
-    public List<TableFieldInfo> orderByFields;
+    private List<OrderFieldInfo> orderByFields;
 
-    public TableInfo(Class<?> entityType) {
+    /**
+     * @since 3.4.4
+     */
+    @Getter
+    private Reflector reflector;
+
+    /**
+     * @param configuration 配置对象
+     * @param entityType    实体类型
+     * @since 3.4.4
+     */
+    public TableInfo(Configuration configuration, Class<?> entityType) {
+        this.configuration = configuration;
         this.entityType = entityType;
+        this.reflector = configuration.getReflectorFactory().findForClass(entityType);
+        this.underCamel = configuration.isMapUnderscoreToCamelCase();
     }
 
     /**
@@ -192,15 +210,6 @@ public class TableInfo implements Constants {
     @Deprecated
     public String getSqlStatement(String sqlMethod) {
         return currentNamespace + DOT + sqlMethod;
-    }
-
-    /**
-     * 设置 Configuration
-     */
-    void setConfiguration(Configuration configuration) {
-        Assert.notNull(configuration, "Error: You need Initialize MybatisConfiguration !");
-        this.configuration = configuration;
-        this.underCamel = configuration.isMapUnderscoreToCamelCase();
     }
 
     /**
@@ -270,13 +279,19 @@ public class TableInfo implements Constants {
      *
      * @return sql 脚本片段
      */
-    public String getKeyInsertSqlProperty(final String prefix, final boolean newLine) {
+    public String getKeyInsertSqlProperty(final boolean batch, final String prefix, final boolean newLine) {
         final String newPrefix = prefix == null ? EMPTY : prefix;
         if (havePK()) {
+            final String prefixKeyProperty = newPrefix + keyProperty;
+            String keyColumn = SqlScriptUtils.safeParam(prefixKeyProperty) + COMMA;
             if (idType == IdType.AUTO) {
-                return EMPTY;
+                if (batch) {
+                    // 批量插入必须返回空自增情况下
+                    return EMPTY;
+                }
+                return SqlScriptUtils.convertIf(keyColumn, String.format("%s != null", prefixKeyProperty), newLine);
             }
-            return SqlScriptUtils.safeParam(newPrefix + keyProperty) + COMMA + (newLine ? NEWLINE : EMPTY);
+            return keyColumn + (newLine ? NEWLINE : EMPTY);
         }
         return EMPTY;
     }
@@ -288,10 +303,16 @@ public class TableInfo implements Constants {
      *
      * @return sql 脚本片段
      */
-    public String getKeyInsertSqlColumn(final boolean newLine) {
+    public String getKeyInsertSqlColumn(final boolean batch, final String prefix, final boolean newLine) {
         if (havePK()) {
+            final String newPrefix = prefix == null ? EMPTY : prefix;
+            final String prefixKeyProperty = newPrefix + keyProperty;
             if (idType == IdType.AUTO) {
-                return EMPTY;
+                if (batch) {
+                    // 批量插入必须返回空自增情况下
+                    return EMPTY;
+                }
+                return SqlScriptUtils.convertIf(keyColumn + COMMA, String.format("%s != null", prefixKeyProperty), newLine);
             }
             return keyColumn + COMMA + (newLine ? NEWLINE : EMPTY);
         }
@@ -308,8 +329,24 @@ public class TableInfo implements Constants {
      * @return sql 脚本片段
      */
     public String getAllInsertSqlPropertyMaybeIf(final String prefix) {
+        return getAllInsertSqlPropertyMaybeIf(prefix, false);
+    }
+
+    /**
+     * 获取所有 insert 时候插入值 sql 脚本片段
+     *
+     * @param prefix                    前缀
+     * @param ignoreAutoIncrementColumn 是否忽略自增主键字段
+     * @return sql 脚本片段
+     * @since 3.5.4
+     */
+    public String getAllInsertSqlPropertyMaybeIf(final String prefix, boolean ignoreAutoIncrementColumn) {
         final String newPrefix = prefix == null ? EMPTY : prefix;
-        return getKeyInsertSqlProperty(newPrefix, true) + fieldList.stream()
+        if (ignoreAutoIncrementColumn && idType == IdType.AUTO) {
+            return fieldList.stream()
+                .map(i -> i.getInsertSqlPropertyMaybeIf(newPrefix)).filter(Objects::nonNull).collect(joining(NEWLINE));
+        }
+        return getKeyInsertSqlProperty(false, newPrefix, true) + fieldList.stream()
             .map(i -> i.getInsertSqlPropertyMaybeIf(newPrefix)).filter(Objects::nonNull).collect(joining(NEWLINE));
     }
 
@@ -323,20 +360,37 @@ public class TableInfo implements Constants {
      * @return sql 脚本片段
      */
     public String getAllInsertSqlColumnMaybeIf(final String prefix) {
+        return getAllInsertSqlColumnMaybeIf(prefix, false);
+    }
+
+    /**
+     * 获取 insert 时候字段 sql 脚本片段
+     *
+     * @param prefix                    前缀
+     * @param ignoreAutoIncrementColumn 是否忽略自增主键字段
+     * @return sql脚本内容
+     * @since 3.5.4
+     */
+    public String getAllInsertSqlColumnMaybeIf(final String prefix, boolean ignoreAutoIncrementColumn) {
         final String newPrefix = prefix == null ? EMPTY : prefix;
-        return getKeyInsertSqlColumn(true) + fieldList.stream().map(i -> i.getInsertSqlColumnMaybeIf(newPrefix))
+        if (ignoreAutoIncrementColumn && idType == IdType.AUTO) {
+            return fieldList.stream().map(i -> i.getInsertSqlColumnMaybeIf(newPrefix))
+                .filter(Objects::nonNull).collect(joining(NEWLINE));
+        }
+        return getKeyInsertSqlColumn(false, newPrefix, true) + fieldList.stream().map(i -> i.getInsertSqlColumnMaybeIf(newPrefix))
             .filter(Objects::nonNull).collect(joining(NEWLINE));
     }
 
     /**
      * 获取所有的查询的 sql 片段
      *
+     * @param fistAnd             首个条件是否添加 AND 关键字
      * @param ignoreLogicDelFiled 是否过滤掉逻辑删除字段
      * @param withId              是否包含 id 项
      * @param prefix              前缀
      * @return sql 脚本片段
      */
-    public String getAllSqlWhere(boolean ignoreLogicDelFiled, boolean withId, final String prefix) {
+    public String getAllSqlWhere(boolean fistAnd, boolean ignoreLogicDelFiled, boolean withId, final String prefix) {
         final String newPrefix = prefix == null ? EMPTY : prefix;
         String filedSqlScript = fieldList.stream()
             .filter(i -> {
@@ -351,7 +405,7 @@ public class TableInfo implements Constants {
         }
         String newKeyProperty = newPrefix + keyProperty;
         String keySqlScript = keyColumn + EQUALS + SqlScriptUtils.safeParam(newKeyProperty);
-        return SqlScriptUtils.convertIf(keySqlScript, String.format("%s != null", newKeyProperty), false)
+        return SqlScriptUtils.convertIf(fistAnd ? " AND " + keySqlScript : keySqlScript, String.format("%s != null", newKeyProperty), false)
             + NEWLINE + filedSqlScript;
     }
 
@@ -398,7 +452,7 @@ public class TableInfo implements Constants {
      * @param isWhere true: logicDeleteValue, false: logicNotDeleteValue
      * @return sql
      */
-    private String formatLogicDeleteSql(boolean isWhere) {
+    protected String formatLogicDeleteSql(boolean isWhere) {
         final String value = isWhere ? logicDeleteFieldInfo.getLogicNotDeleteValue() : logicDeleteFieldInfo.getLogicDeleteValue();
         if (isWhere) {
             if (NULL.equalsIgnoreCase(value)) {
@@ -423,7 +477,7 @@ public class TableInfo implements Constants {
             String id = currentNamespace + DOT + MYBATIS_PLUS + UNDERSCORE + entityType.getSimpleName();
             List<ResultMapping> resultMappings = new ArrayList<>();
             if (havePK()) {
-                ResultMapping idMapping = new ResultMapping.Builder(configuration, keyProperty, keyColumn, keyType)
+                ResultMapping idMapping = new ResultMapping.Builder(configuration, keyProperty, StringUtils.getTargetColumn(keyColumn), keyType)
                     .flags(Collections.singletonList(ResultFlag.ID)).build();
                 resultMappings.add(idMapping);
             }
@@ -452,12 +506,6 @@ public class TableInfo implements Constants {
             if (i.isWithUpdateFill()) {
                 this.withUpdateFill = true;
             }
-            if (i.isOrderBy()) {
-                if (null == this.orderByFields) {
-                    this.orderByFields = new LinkedList<>();
-                }
-                this.orderByFields.add(i);
-            }
             if (i.isVersion()) {
                 this.withVersion = true;
                 this.versionFieldInfo = i;
@@ -473,8 +521,60 @@ public class TableInfo implements Constants {
         return Collections.unmodifiableList(fieldList);
     }
 
+    public List<OrderFieldInfo> getOrderByFields() {
+        if (null == this.orderByFields) {
+            this.orderByFields = new LinkedList<>();
+        }
+        return this.orderByFields;
+    }
+
     @Deprecated
     public boolean isLogicDelete() {
         return withLogicDelete;
     }
+
+    /**
+     * 获取对象属性值
+     *
+     * @param entity   对象
+     * @param property 属性名
+     * @return 属性值
+     * @since 3.4.4
+     */
+    public Object getPropertyValue(Object entity, String property) {
+        try {
+            return this.reflector.getGetInvoker(property).invoke(entity, null);
+        } catch (ReflectiveOperationException e) {
+            throw ExceptionUtils.mpe("Error: Cannot read property in %s.  Cause:", e, entity.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * 设置对象属性值
+     *
+     * @param entity   实体对象
+     * @param property 属性名
+     * @param values   参数
+     * @since 3.4.4
+     */
+    public void setPropertyValue(Object entity, String property, Object... values) {
+        try {
+            this.reflector.getSetInvoker(property).invoke(entity, values);
+        } catch (ReflectiveOperationException e) {
+            throw ExceptionUtils.mpe("Error: Cannot write property in %s.  Cause:", e, entity.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * 创建实例
+     *
+     * @param <T> 泛型
+     * @return 初始化实例
+     * @since 3.5.0
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T newInstance() {
+        return (T) configuration.getObjectFactory().create(entityType);
+    }
+
 }

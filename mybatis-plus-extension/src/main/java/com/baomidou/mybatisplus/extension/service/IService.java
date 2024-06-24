@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Assert;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
+import com.baomidou.mybatisplus.core.toolkit.Constants;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.conditions.query.ChainQuery;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
@@ -34,10 +35,7 @@ import com.baomidou.mybatisplus.extension.toolkit.SqlHelper;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.Serializable;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -52,7 +50,7 @@ public interface IService<T> {
     /**
      * 默认批次提交数量
      */
-    int DEFAULT_BATCH_SIZE = 1000;
+    int DEFAULT_BATCH_SIZE = Constants.DEFAULT_BATCH_SIZE;
 
     /**
      * 插入一条记录（选择字段，策略插入）
@@ -109,6 +107,28 @@ public interface IService<T> {
     }
 
     /**
+     * 根据 ID 删除
+     *
+     * @param id      主键(类型必须与实体类型字段保持一致)
+     * @param useFill 是否启用填充(为true的情况,会将入参转换实体进行delete删除)
+     * @return 删除结果
+     * @since 3.5.0
+     */
+    default boolean removeById(Serializable id, boolean useFill) {
+        throw new UnsupportedOperationException("不支持的方法!");
+    }
+
+    /**
+     * 根据实体(ID)删除
+     *
+     * @param entity 实体
+     * @since 3.4.4
+     */
+    default boolean removeById(T entity) {
+        return SqlHelper.retBool(getBaseMapper().deleteById(entity));
+    }
+
+    /**
      * 根据 columnMap 条件，删除记录
      *
      * @param columnMap 表字段 map 对象
@@ -130,13 +150,81 @@ public interface IService<T> {
     /**
      * 删除（根据ID 批量删除）
      *
-     * @param idList 主键ID列表
+     * @param list 主键ID或实体列表
      */
-    default boolean removeByIds(Collection<? extends Serializable> idList) {
-        if (CollectionUtils.isEmpty(idList)) {
+    default boolean removeByIds(Collection<?> list) {
+        if (CollectionUtils.isEmpty(list)) {
             return false;
         }
-        return SqlHelper.retBool(getBaseMapper().deleteBatchIds(idList));
+        return SqlHelper.retBool(getBaseMapper().deleteByIds(list));
+    }
+
+    /**
+     * 批量删除
+     *
+     * @param list    主键ID或实体列表
+     * @param useFill 是否填充(为true的情况,会将入参转换实体进行delete删除)
+     * @return 删除结果
+     * @since 3.5.0
+     */
+    default boolean removeByIds(Collection<?> list, boolean useFill) {
+        if (CollectionUtils.isEmpty(list)) {
+            return false;
+        }
+        return SqlHelper.retBool(getBaseMapper().deleteByIds(list, useFill));
+    }
+
+    /**
+     * 批量删除(jdbc批量提交)
+     *
+     * @param list 主键ID或实体列表(主键ID类型必须与实体类型字段保持一致)
+     * @return 删除结果
+     * @since 3.5.0
+     */
+    @Transactional(rollbackFor = Exception.class)
+    default boolean removeBatchByIds(Collection<?> list) {
+        return removeBatchByIds(list, DEFAULT_BATCH_SIZE);
+    }
+
+    /**
+     * 批量删除(jdbc批量提交)
+     *
+     * @param list    主键ID或实体列表(主键ID类型必须与实体类型字段保持一致)
+     * @param useFill 是否启用填充(为true的情况,会将入参转换实体进行delete删除)
+     * @return 删除结果
+     * @since 3.5.0
+     */
+    default boolean removeBatchByIds(Collection<?> list, boolean useFill) {
+        return removeBatchByIds(list, DEFAULT_BATCH_SIZE, useFill);
+    }
+
+    /**
+     * 批量删除(jdbc批量提交)
+     *
+     * @param list      主键ID或实体列表
+     * @param batchSize 批次大小
+     * @return 删除结果
+     * @since 3.5.0
+     * @deprecated 3.5.7 {@link #removeBatchByIds(Collection)}
+     */
+    @Deprecated
+    default boolean removeBatchByIds(Collection<?> list, int batchSize) {
+        throw new UnsupportedOperationException("不支持的方法!");
+    }
+
+    /**
+     * 批量删除(jdbc批量提交)
+     *
+     * @param list      主键ID或实体列表
+     * @param batchSize 批次大小
+     * @param useFill   是否启用填充(为true的情况,会将入参转换实体进行delete删除)
+     * @return 删除结果
+     * @since 3.5.0
+     * @deprecated 3.5.7 {@link #removeBatchByIds(Collection)}
+     */
+    @Deprecated
+    default boolean removeBatchByIds(Collection<?> list, int batchSize, boolean useFill) {
+        throw new UnsupportedOperationException("不支持的方法!");
     }
 
     /**
@@ -150,6 +238,7 @@ public interface IService<T> {
 
     /**
      * 根据 UpdateWrapper 条件，更新记录 需要设置sqlset
+     * <p>此方法无法进行自动填充,如需自动填充请使用{@link #update(Object, Wrapper)}</p>
      *
      * @param updateWrapper 实体对象封装操作类 {@link com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper}
      */
@@ -160,7 +249,7 @@ public interface IService<T> {
     /**
      * 根据 whereEntity 条件，更新记录
      *
-     * @param entity        实体对象
+     * @param entity        实体对象(当entity为空时无法进行自动填充)
      * @param updateWrapper 实体对象封装操作类 {@link com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper}
      */
     default boolean update(T entity, Wrapper<T> updateWrapper) {
@@ -202,12 +291,22 @@ public interface IService<T> {
     }
 
     /**
+     * 根据 ID 查询，返回一个Option对象
+     *
+     * @param id 主键ID
+     * @return {@link Optional}
+     */
+    default Optional<T> getOptById(Serializable id) {
+        return Optional.ofNullable(getBaseMapper().selectById(id));
+    }
+
+    /**
      * 查询（根据ID 批量查询）
      *
      * @param idList 主键ID列表
      */
     default List<T> listByIds(Collection<? extends Serializable> idList) {
-        return getBaseMapper().selectBatchIds(idList);
+        return getBaseMapper().selectByIds(idList);
     }
 
     /**
@@ -230,12 +329,32 @@ public interface IService<T> {
     }
 
     /**
+     * 根据 Wrapper，查询一条记录 <br/>
+     * <p>结果集，如果是多个会抛出异常，随机取一条加上限制条件 wrapper.last("LIMIT 1")</p>
+     *
+     * @param queryWrapper 实体对象封装操作类 {@link com.baomidou.mybatisplus.core.conditions.query.QueryWrapper}
+     * @return {@link Optional} 返回一个Optional对象
+     */
+    default Optional<T> getOneOpt(Wrapper<T> queryWrapper) {
+        return getOneOpt(queryWrapper, true);
+    }
+
+    /**
      * 根据 Wrapper，查询一条记录
      *
      * @param queryWrapper 实体对象封装操作类 {@link com.baomidou.mybatisplus.core.conditions.query.QueryWrapper}
      * @param throwEx      有多个 result 是否抛出异常
      */
     T getOne(Wrapper<T> queryWrapper, boolean throwEx);
+
+    /**
+     * 根据 Wrapper，查询一条记录
+     *
+     * @param queryWrapper 实体对象封装操作类 {@link com.baomidou.mybatisplus.core.conditions.query.QueryWrapper}
+     * @param throwEx      有多个 result 是否抛出异常
+     * @return {@link Optional} 返回一个Optional对象
+     */
+    Optional<T> getOneOpt(Wrapper<T> queryWrapper, boolean throwEx);
 
     /**
      * 根据 Wrapper，查询一条记录
@@ -253,11 +372,20 @@ public interface IService<T> {
     <V> V getObj(Wrapper<T> queryWrapper, Function<? super Object, V> mapper);
 
     /**
+     * 查询指定条件是否存在数据
+     *
+     * @see Wrappers#emptyWrapper()
+     */
+    default boolean exists(Wrapper<T> queryWrapper) {
+        return getBaseMapper().exists(queryWrapper);
+    }
+
+    /**
      * 查询总记录数
      *
      * @see Wrappers#emptyWrapper()
      */
-    default int count() {
+    default long count() {
         return count(Wrappers.emptyWrapper());
     }
 
@@ -266,7 +394,7 @@ public interface IService<T> {
      *
      * @param queryWrapper 实体对象封装操作类 {@link com.baomidou.mybatisplus.core.conditions.query.QueryWrapper}
      */
-    default int count(Wrapper<T> queryWrapper) {
+    default long count(Wrapper<T> queryWrapper) {
         return SqlHelper.retCount(getBaseMapper().selectCount(queryWrapper));
     }
 
@@ -280,12 +408,35 @@ public interface IService<T> {
     }
 
     /**
+     * 查询列表
+     *
+     * @param page         分页条件
+     * @param queryWrapper queryWrapper 实体对象封装操作类 {@link com.baomidou.mybatisplus.core.conditions.query.QueryWrapper}
+     * @return 列表数据
+     * @since 3.5.3.2
+     */
+    default List<T> list(IPage<T> page, Wrapper<T> queryWrapper) {
+        return getBaseMapper().selectList(page, queryWrapper);
+    }
+
+    /**
      * 查询所有
      *
      * @see Wrappers#emptyWrapper()
      */
     default List<T> list() {
         return list(Wrappers.emptyWrapper());
+    }
+
+    /**
+     * 分页查询单表数据
+     *
+     * @param page 分页条件
+     * @return 列表数据
+     * @since 3.5.3.2
+     */
+    default List<T> list(IPage<T> page) {
+        return list(page, Wrappers.emptyWrapper());
     }
 
     /**
@@ -318,6 +469,19 @@ public interface IService<T> {
     }
 
     /**
+     * 查询列表
+     *
+     * @param page         分页条件
+     * @param queryWrapper 实体对象封装操作类 {@link com.baomidou.mybatisplus.core.conditions.query.QueryWrapper}
+     * @return 列表数据
+     * @since 3.5.3.2
+     */
+    default List<Map<String, Object>> listMaps(IPage<? extends Map<String, Object>> page, Wrapper<T> queryWrapper) {
+        return getBaseMapper().selectMaps(page, queryWrapper);
+    }
+
+
+    /**
      * 查询所有列表
      *
      * @see Wrappers#emptyWrapper()
@@ -327,10 +491,21 @@ public interface IService<T> {
     }
 
     /**
+     * 查询列表
+     *
+     * @param page 分页条件
+     * @see Wrappers#emptyWrapper()
+     */
+    default List<Map<String, Object>> listMaps(IPage<? extends Map<String, Object>> page) {
+        return listMaps(page, Wrappers.emptyWrapper());
+    }
+
+
+    /**
      * 查询全部记录
      */
-    default List<Object> listObjs() {
-        return listObjs(Function.identity());
+    default <E> List<E> listObjs() {
+        return getBaseMapper().selectObjs(null);
     }
 
     /**
@@ -347,8 +522,8 @@ public interface IService<T> {
      *
      * @param queryWrapper 实体对象封装操作类 {@link com.baomidou.mybatisplus.core.conditions.query.QueryWrapper}
      */
-    default List<Object> listObjs(Wrapper<T> queryWrapper) {
-        return listObjs(queryWrapper, Function.identity());
+    default <E> List<E> listObjs(Wrapper<T> queryWrapper) {
+        return getBaseMapper().selectObjs(queryWrapper);
     }
 
     /**
@@ -428,7 +603,18 @@ public interface IService<T> {
      * @return LambdaQueryWrapper 的包装类
      */
     default LambdaQueryChainWrapper<T> lambdaQuery() {
-        return ChainWrappers.lambdaQueryChain(getBaseMapper());
+        return ChainWrappers.lambdaQueryChain(getBaseMapper(), getEntityClass());
+    }
+
+    /**
+     * 链式查询 lambda 式
+     * <p>注意：不支持 Kotlin </p>
+     *
+     * @param entity 实体对象
+     * @return LambdaQueryWrapper 的包装类
+     */
+    default LambdaQueryChainWrapper<T> lambdaQuery(T entity) {
+        return ChainWrappers.lambdaQueryChain(getBaseMapper(), entity);
     }
 
     /**
@@ -475,9 +661,16 @@ public interface IService<T> {
      * 根据updateWrapper尝试更新，否继续执行saveOrUpdate(T)方法
      * 此次修改主要是减少了此项业务代码的代码量（存在性验证之后的saveOrUpdate操作）
      * </p>
+     * <p>
+     * 该方法不推荐在多线程并发下使用，并发可能存在间隙锁的问题，可以采用先查询后判断是否更新或保存。
+     * </p>
+     * <p>
+     * 该方法存在安全隐患将在后续大版本删除
+     * </p>
      *
      * @param entity 实体对象
      */
+    @Deprecated
     default boolean saveOrUpdate(T entity, Wrapper<T> updateWrapper) {
         return update(entity, updateWrapper) || saveOrUpdate(entity);
     }

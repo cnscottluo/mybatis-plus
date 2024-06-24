@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,24 @@ package com.baomidou.mybatisplus.core.config;
 
 import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.core.handlers.AnnotationHandler;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
+import com.baomidou.mybatisplus.core.handlers.PostInitTableInfoHandler;
 import com.baomidou.mybatisplus.core.incrementer.IKeyGenerator;
 import com.baomidou.mybatisplus.core.incrementer.IdentifierGenerator;
 import com.baomidou.mybatisplus.core.injector.DefaultSqlInjector;
 import com.baomidou.mybatisplus.core.injector.ISqlInjector;
 import com.baomidou.mybatisplus.core.mapper.Mapper;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.apache.ibatis.session.SqlSessionFactory;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
@@ -39,29 +46,11 @@ import java.util.concurrent.ConcurrentSkipListSet;
  */
 @Data
 @Accessors(chain = true)
-@SuppressWarnings("serial")
 public class GlobalConfig implements Serializable {
-
     /**
      * 是否开启 LOGO
      */
     private boolean banner = true;
-    /**
-     * 机器 ID 部分
-     *
-     * @see #setIdentifierGenerator(IdentifierGenerator)
-     * @deprecated 3.3.0
-     */
-    @Deprecated
-    private Long workerId;
-    /**
-     * 数据标识 ID 部分
-     *
-     * @see #setIdentifierGenerator(IdentifierGenerator)
-     * @deprecated 3.3.0
-     */
-    @Deprecated
-    private Long datacenterId;
     /**
      * 是否初始化 SqlRunner
      */
@@ -80,7 +69,10 @@ public class GlobalConfig implements Serializable {
     private Class<?> superMapperClass = Mapper.class;
     /**
      * 仅用于缓存 SqlSessionFactory(外部勿进行set,set了也没用)
+     *
+     * @deprecated 3.5.3.2
      */
+    @Deprecated
     private SqlSessionFactory sqlSessionFactory;
     /**
      * 缓存已注入CRUD的Mapper信息
@@ -91,9 +83,22 @@ public class GlobalConfig implements Serializable {
      */
     private MetaObjectHandler metaObjectHandler;
     /**
+     * 注解控制器
+     */
+    private AnnotationHandler annotationHandler = new AnnotationHandler(){};
+    /**
+     * 参与 TableInfo 的初始化
+     */
+    private PostInitTableInfoHandler postInitTableInfoHandler = new PostInitTableInfoHandler() {
+    };
+    /**
      * 主键生成器
      */
     private IdentifierGenerator identifierGenerator;
+    /**
+     * 数据库相关配置
+     */
+    private Sequence sequence = new Sequence();
 
     @Data
     public static class DbConfig {
@@ -121,6 +126,15 @@ public class GlobalConfig implements Serializable {
          * @since 3.1.1
          */
         private String columnFormat;
+        /**
+         * db 表 format
+         * <p>
+         * 例: `%s`
+         * <p>
+         *
+         * @since 3.5.3.2
+         */
+        private String tableFormat;
         /**
          * entity 的字段(property)的 format,只有在 column as property 这种情况下生效
          * <p>
@@ -159,7 +173,7 @@ public class GlobalConfig implements Serializable {
         /**
          * 表主键生成器
          */
-        private IKeyGenerator keyGenerator;
+        private List<IKeyGenerator> keyGenerators;
         /**
          * 逻辑删除全局属性名
          */
@@ -184,11 +198,80 @@ public class GlobalConfig implements Serializable {
          * @since 3.1.2
          */
         private FieldStrategy updateStrategy = FieldStrategy.NOT_NULL;
+
         /**
          * 字段验证策略之 select
          *
          * @since 3.1.2
+         * @deprecated 3.4.4
          */
-        private FieldStrategy selectStrategy = FieldStrategy.NOT_NULL;
+        @Deprecated
+        private FieldStrategy selectStrategy;
+
+        /**
+         * 字段验证策略之 where
+         * 替代selectStrategy，保持与{@link TableField#whereStrategy()}一致
+         *
+         * @since 3.4.4
+         */
+        private FieldStrategy whereStrategy = FieldStrategy.NOT_NULL;
+
+        /**
+         * 生成INSERT语句时忽略自增主键字段(默认不忽略,主键有值时写入主键值,无值自增).
+         * <p>当设置为true时,执行生成SQL语句无论ID是否有值都会忽视 (此为3.4.3.1版本下策略,如果升级遇到问题可以考虑开启此配置来兼容升级)</p>
+         *
+         * @since 3.5.6
+         */
+        private boolean insertIgnoreAutoIncrementColumn = false;
+
+        /**
+         * 重写whereStrategy的get方法，适配低版本：
+         * - 如果用户自定义了selectStrategy则用用户自定义的，
+         * - 后续版本移除selectStrategy后，直接删除该方法即可。
+         *
+         * @return 字段作为查询条件时的验证策略
+         * @since 3.4.4
+         */
+        public FieldStrategy getWhereStrategy() {
+            return selectStrategy == null ? whereStrategy : selectStrategy;
+        }
     }
+
+    /**
+     * 雪花ID配置
+     * <p>
+     * 1. 手动指定{@link #workerId} 和 {@link #datacenterId}
+     * </p>
+     * <p>
+     * 2. 基于网卡信息和进程PID计算 {@link #workerId} 和 {@link #datacenterId}
+     * </p>
+     *
+     * @since 3.5.7
+     */
+    @Getter
+    @Setter
+    public static class Sequence {
+
+        /**
+         * 工作机器 ID
+         */
+        private Long workerId;
+
+        /**
+         * 数据标识 ID 部分
+         */
+        private Long datacenterId;
+
+        /**
+         * 首选网络地址 (例如: 192.168.1,支持正则)
+         */
+        private List<String> preferredNetworks = new ArrayList<>();
+
+        /**
+         * 忽略网卡(例如:eth0,,支持正则)
+         */
+        private List<String> ignoredInterfaces = new ArrayList<>();
+
+    }
+
 }

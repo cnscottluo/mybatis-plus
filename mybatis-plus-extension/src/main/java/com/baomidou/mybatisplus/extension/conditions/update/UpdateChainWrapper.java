@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,10 +32,19 @@ public class UpdateChainWrapper<T> extends AbstractChainWrapper<T, String, Updat
     implements ChainUpdate<T>, Update<UpdateChainWrapper<T>, String> {
 
     private final BaseMapper<T> baseMapper;
+    private final Class<T> entityClass;
 
     public UpdateChainWrapper(BaseMapper<T> baseMapper) {
         super();
         this.baseMapper = baseMapper;
+        this.entityClass = null;
+        super.wrapperChildren = new UpdateWrapper<>();
+    }
+
+    public UpdateChainWrapper(Class<T> entityClass) {
+        super();
+        this.baseMapper = null;
+        this.entityClass = entityClass;
         super.wrapperChildren = new UpdateWrapper<>();
     }
 
@@ -46,8 +55,8 @@ public class UpdateChainWrapper<T> extends AbstractChainWrapper<T, String, Updat
     }
 
     @Override
-    public UpdateChainWrapper<T> setSql(boolean condition, String sql) {
-        wrapperChildren.setSql(condition, sql);
+    public UpdateChainWrapper<T> setSql(boolean condition, String setSql, Object... params) {
+        wrapperChildren.setSql(condition, setSql, params);
         return typedThis;
     }
 
@@ -59,5 +68,10 @@ public class UpdateChainWrapper<T> extends AbstractChainWrapper<T, String, Updat
     @Override
     public BaseMapper<T> getBaseMapper() {
         return baseMapper;
+    }
+
+    @Override
+    public Class<T> getEntityClass() {
+        return entityClass;
     }
 }

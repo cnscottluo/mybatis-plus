@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,18 @@ import java.sql.SQLException;
 /**
  * 监听事件
  *
- * @author nieqiurong 2019/11/10.
+ * @author nieqiurong
+ * @since 2019-11-10
  */
 public class MybatisPlusLoggingEventListener extends LoggingEventListener {
+    private static MybatisPlusLoggingEventListener INSTANCE;
 
-    static final MybatisPlusLoggingEventListener INSTANCE = new MybatisPlusLoggingEventListener();
+    public static MybatisPlusLoggingEventListener getInstance() {
+        if (null == INSTANCE) {
+            INSTANCE = new MybatisPlusLoggingEventListener();
+        }
+        return INSTANCE;
+    }
 
     @Override
     public void onAfterExecuteBatch(StatementInformation statementInformation, long timeElapsedNanos, int[] updateCounts, SQLException e) {

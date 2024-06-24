@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,32 @@
  */
 package com.baomidou.mybatisplus.core.metadata;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
+import com.baomidou.mybatisplus.annotation.OrderBy;
+import com.baomidou.mybatisplus.annotation.SqlCondition;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.baomidou.mybatisplus.annotation.Version;
 import com.baomidou.mybatisplus.core.config.GlobalConfig;
+import com.baomidou.mybatisplus.core.handlers.IJsonTypeHandler;
 import com.baomidou.mybatisplus.core.toolkit.Constants;
+import com.baomidou.mybatisplus.core.toolkit.MybatisUtils;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.core.toolkit.sql.SqlScriptUtils;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 import org.apache.ibatis.mapping.ResultMapping;
 import org.apache.ibatis.reflection.Reflector;
 import org.apache.ibatis.session.Configuration;
-import org.apache.ibatis.type.*;
+import org.apache.ibatis.type.JdbcType;
+import org.apache.ibatis.type.TypeAliasRegistry;
+import org.apache.ibatis.type.TypeHandler;
+import org.apache.ibatis.type.TypeHandlerRegistry;
+import org.apache.ibatis.type.UnknownTypeHandler;
 
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -38,7 +54,6 @@ import java.util.Map;
 @Getter
 @ToString
 @EqualsAndHashCode
-@SuppressWarnings("serial")
 public class TableFieldInfo implements Constants {
 
     /**
@@ -110,6 +125,7 @@ public class TableFieldInfo implements Constants {
     /**
      * 是否是逻辑删除字段
      */
+    @Getter
     private boolean logicDelete = false;
     /**
      * 逻辑删除值
@@ -162,7 +178,7 @@ public class TableFieldInfo implements Constants {
     private Class<? extends TypeHandler<?>> typeHandler;
 
     /**
-     *  是否存在OrderBy注解
+     * 是否存在OrderBy注解
      */
     private boolean isOrderBy;
     /**
@@ -177,13 +193,12 @@ public class TableFieldInfo implements Constants {
     /**
      * 全新的 存在 TableField 注解时使用的构造函数
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    public TableFieldInfo(GlobalConfig.DbConfig dbConfig, TableInfo tableInfo, Field field, TableField tableField,
-                          Reflector reflector, boolean existTableLogic,boolean isOrderBy) {
-        this(dbConfig,tableInfo,field,tableField,reflector,existTableLogic);
+    public TableFieldInfo(GlobalConfig globalConfig, TableInfo tableInfo, Field field, TableField tableField,
+                          Reflector reflector, boolean existTableLogic, boolean isOrderBy) {
+        this(globalConfig, tableInfo, field, tableField, reflector, existTableLogic);
         this.isOrderBy = isOrderBy;
-        if(isOrderBy){
-            initOrderBy(field);
+        if (isOrderBy) {
+            initOrderBy(tableInfo, globalConfig.getAnnotationHandler().getAnnotation(field, OrderBy.class));
         }
     }
 
@@ -191,11 +206,13 @@ public class TableFieldInfo implements Constants {
      * 全新的 存在 TableField 注解时使用的构造函数
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public TableFieldInfo(GlobalConfig.DbConfig dbConfig, TableInfo tableInfo, Field field, TableField tableField,
+    public TableFieldInfo(GlobalConfig globalConfig, TableInfo tableInfo, Field field, TableField tableField,
                           Reflector reflector, boolean existTableLogic) {
+
+        GlobalConfig.DbConfig dbConfig = globalConfig.getDbConfig();
         field.setAccessible(true);
         this.field = field;
-        this.version = field.getAnnotation(Version.class) != null;
+        this.version = globalConfig.getAnnotationHandler().isAnnotationPresent(field, Version.class);
         this.property = field.getName();
         this.propertyType = reflector.getGetterType(this.property);
         this.isPrimitive = this.propertyType.isPrimitive();
@@ -207,7 +224,12 @@ public class TableFieldInfo implements Constants {
         JdbcType jdbcType = tableField.jdbcType();
         final Class<? extends TypeHandler> typeHandler = tableField.typeHandler();
         final String numericScale = tableField.numericScale();
+        boolean needAs = false;
         String el = this.property;
+        if (StringUtils.isNotBlank(tableField.property())) {
+            el = tableField.property();
+            needAs = true;
+        }
         if (JdbcType.UNDEFINED != jdbcType) {
             this.jdbcType = jdbcType;
             el += (COMMA + SqlScriptUtils.mappingJdbcType(jdbcType));
@@ -238,7 +260,7 @@ public class TableFieldInfo implements Constants {
         this.el = el;
         int index = el.indexOf(COMMA);
         this.mapping = index > 0 ? el.substring(++index) : null;
-        this.initLogicDelete(dbConfig, field, existTableLogic);
+        this.initLogicDelete(globalConfig, field, existTableLogic);
 
         String column = tableField.value();
         if (StringUtils.isBlank(column)) {
@@ -259,7 +281,14 @@ public class TableFieldInfo implements Constants {
 
         this.column = column;
         this.sqlSelect = column;
-        if (tableInfo.getResultMap() == null && !tableInfo.isAutoInitResultMap() &&
+        if (needAs) {
+            // 存在指定转换属性
+            String propertyFormat = dbConfig.getPropertyFormat();
+            if (StringUtils.isBlank(propertyFormat)) {
+                propertyFormat = "%s";
+            }
+            this.sqlSelect += (AS + String.format(propertyFormat, tableField.property()));
+        } else if (tableInfo.getResultMap() == null && !tableInfo.isAutoInitResultMap() &&
             TableInfoHelper.checkRelated(tableInfo.isUnderCamel(), this.property, this.column)) {
             /* 未设置 resultMap 也未开启自动构建 resultMap, 字段规则又不符合 mybatis 的自动封装规则 */
             String propertyFormat = dbConfig.getPropertyFormat();
@@ -272,7 +301,7 @@ public class TableFieldInfo implements Constants {
 
         this.insertStrategy = this.chooseFieldStrategy(tableField.insertStrategy(), dbConfig.getInsertStrategy());
         this.updateStrategy = this.chooseFieldStrategy(tableField.updateStrategy(), dbConfig.getUpdateStrategy());
-        this.whereStrategy = this.chooseFieldStrategy(tableField.whereStrategy(), dbConfig.getSelectStrategy());
+        this.whereStrategy = this.chooseFieldStrategy(tableField.whereStrategy(), dbConfig.getWhereStrategy());
 
         if (StringUtils.isNotBlank(tableField.condition())) {
             // 细粒度条件控制
@@ -293,32 +322,34 @@ public class TableFieldInfo implements Constants {
     /**
      * 不存在 TableField 注解时, 使用的构造函数
      */
-    public TableFieldInfo(GlobalConfig.DbConfig dbConfig, TableInfo tableInfo, Field field, Reflector reflector,
-                          boolean existTableLogic,boolean isOrderBy) {
-        this(dbConfig,tableInfo,field,reflector,existTableLogic);
+    public TableFieldInfo(GlobalConfig globalConfig, TableInfo tableInfo, Field field, Reflector reflector,
+                          boolean existTableLogic, boolean isOrderBy) {
+        this(globalConfig, tableInfo, field, reflector, existTableLogic);
         this.isOrderBy = isOrderBy;
-        if(isOrderBy){
-            initOrderBy(field);
+        if (isOrderBy) {
+            initOrderBy(tableInfo, globalConfig.getAnnotationHandler().getAnnotation(field, OrderBy.class));
         }
     }
+
     /**
      * 不存在 TableField 注解时, 使用的构造函数
      */
-    public TableFieldInfo(GlobalConfig.DbConfig dbConfig, TableInfo tableInfo, Field field, Reflector reflector,
+    public TableFieldInfo(GlobalConfig globalConfig, TableInfo tableInfo, Field field, Reflector reflector,
                           boolean existTableLogic) {
         field.setAccessible(true);
         this.field = field;
-        this.version = field.getAnnotation(Version.class) != null;
+        this.version = globalConfig.getAnnotationHandler().isAnnotationPresent(field, Version.class);
         this.property = field.getName();
         this.propertyType = reflector.getGetterType(this.property);
         this.isPrimitive = this.propertyType.isPrimitive();
         this.isCharSequence = StringUtils.isCharSequence(this.propertyType);
         this.el = this.property;
         this.mapping = null;
+        GlobalConfig.DbConfig dbConfig = globalConfig.getDbConfig();
         this.insertStrategy = dbConfig.getInsertStrategy();
         this.updateStrategy = dbConfig.getUpdateStrategy();
-        this.whereStrategy = dbConfig.getSelectStrategy();
-        this.initLogicDelete(dbConfig, field, existTableLogic);
+        this.whereStrategy = dbConfig.getWhereStrategy();
+        this.initLogicDelete(globalConfig, field, existTableLogic);
 
         String column = this.property;
         if (tableInfo.isUnderCamel()) {
@@ -351,15 +382,17 @@ public class TableFieldInfo implements Constants {
 
     /**
      * 排序初始化
-     * @param field 字段
+     *
+     * @param tableInfo 表信息
+     * @param orderBy 排序注解
      */
-    private void initOrderBy(Field field){
-        OrderBy orderBy = field.getAnnotation(OrderBy.class);
+    private void initOrderBy(TableInfo tableInfo, OrderBy orderBy) {
         if (null != orderBy) {
             this.isOrderBy = true;
             this.orderBySort = orderBy.sort();
-            this.orderByType = orderBy.isDesc()?"desc":"asc";
-        }else{
+            this.orderByType = orderBy.asc() ? Constants.ASC : Constants.DESC;
+            tableInfo.getOrderByFields().add(new OrderFieldInfo(this.getColumn(), orderBy.asc(), orderBy.sort()));
+        } else {
             this.isOrderBy = false;
         }
     }
@@ -367,12 +400,13 @@ public class TableFieldInfo implements Constants {
     /**
      * 逻辑删除初始化
      *
-     * @param dbConfig 数据库全局配置
+     * @param globalConfig 全局配置
      * @param field    字段属性对象
      */
-    private void initLogicDelete(GlobalConfig.DbConfig dbConfig, Field field, boolean existTableLogic) {
+    private void initLogicDelete(GlobalConfig globalConfig, Field field, boolean existTableLogic) {
+        GlobalConfig.DbConfig dbConfig = globalConfig.getDbConfig();
         /* 获取注解属性，逻辑处理字段 */
-        TableLogic tableLogic = field.getAnnotation(TableLogic.class);
+        TableLogic tableLogic = globalConfig.getAnnotationHandler().getAnnotation(field, TableLogic.class);
         if (null != tableLogic) {
             if (StringUtils.isNotBlank(tableLogic.value())) {
                 this.logicNotDeleteValue = tableLogic.value();
@@ -520,17 +554,21 @@ public class TableFieldInfo implements Constants {
      * @return ResultMapping
      */
     ResultMapping getResultMapping(final Configuration configuration) {
-        ResultMapping.Builder builder = new ResultMapping.Builder(configuration, property,
-            StringUtils.getTargetColumn(column), propertyType);
+        ResultMapping.Builder builder = new ResultMapping.Builder(configuration, this.property,
+            StringUtils.getTargetColumn(this.column), this.propertyType);
         TypeHandlerRegistry registry = configuration.getTypeHandlerRegistry();
-        if (jdbcType != null && jdbcType != JdbcType.UNDEFINED) {
-            builder.jdbcType(jdbcType);
+        if (this.jdbcType != null && this.jdbcType != JdbcType.UNDEFINED) {
+            builder.jdbcType(this.jdbcType);
         }
-        if (typeHandler != null && typeHandler != UnknownTypeHandler.class) {
+        if (this.typeHandler != null && this.typeHandler != UnknownTypeHandler.class) {
             TypeHandler<?> typeHandler = registry.getMappingTypeHandler(this.typeHandler);
-            if (typeHandler == null) {
-                typeHandler = registry.getInstance(propertyType, this.typeHandler);
-                // todo 这会有影响 registry.register(typeHandler);
+            if (IJsonTypeHandler.class.isAssignableFrom(this.typeHandler)) {
+                // 保证每次实例化
+                typeHandler = MybatisUtils.newJsonTypeHandler(this.typeHandler, this.propertyType, this.field);
+            } else {
+                if (typeHandler == null) {
+                    typeHandler = registry.getInstance(this.propertyType, this.typeHandler);
+                }
             }
             builder.typeHandler(typeHandler);
         }
@@ -559,7 +597,7 @@ public class TableFieldInfo implements Constants {
         if (fieldStrategy == FieldStrategy.NEVER) {
             return null;
         }
-        if (isPrimitive || fieldStrategy == FieldStrategy.IGNORED) {
+        if (isPrimitive || fieldStrategy == FieldStrategy.IGNORED || fieldStrategy == FieldStrategy.ALWAYS) {
             return sqlScript;
         }
         if (fieldStrategy == FieldStrategy.NOT_EMPTY && isCharSequence) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,6 +64,7 @@ public interface StringPool {
     String N = "n";
     String NO = "no";
     String NULL = "null";
+    String NUM = "NUM";
     String OFF = "off";
     String ON = "on";
     String PERCENT = "%";
@@ -81,6 +82,7 @@ public interface StringPool {
     String SINGLE_QUOTE = "'";
     String BACKTICK = "`";
     String SPACE = " ";
+    String SQL = "sql";
     String TILDA = "~";
     String LEFT_SQ_BRACKET = "[";
     String RIGHT_SQ_BRACKET = "]";

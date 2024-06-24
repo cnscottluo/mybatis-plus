@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,13 +29,25 @@ import org.apache.ibatis.mapping.SqlSource;
  */
 public class Update extends AbstractMethod {
 
+    public Update() {
+        this(SqlMethod.UPDATE.getMethod());
+    }
+
+    /**
+     * @since 3.5.0
+     * @param name 方法名
+     */
+    public Update(String name) {
+        super(name);
+    }
+
     @Override
     public MappedStatement injectMappedStatement(Class<?> mapperClass, Class<?> modelClass, TableInfo tableInfo) {
         SqlMethod sqlMethod = SqlMethod.UPDATE;
         String sql = String.format(sqlMethod.getSql(), tableInfo.getTableName(),
             sqlSet(true, true, tableInfo, true, ENTITY, ENTITY_DOT),
             sqlWhereEntityWrapper(true, tableInfo), sqlComment());
-        SqlSource sqlSource = languageDriver.createSqlSource(configuration, sql, modelClass);
-        return this.addUpdateMappedStatement(mapperClass, modelClass, getMethod(sqlMethod), sqlSource);
+        SqlSource sqlSource = super.createSqlSource(configuration, sql, modelClass);
+        return this.addUpdateMappedStatement(mapperClass, modelClass, methodName, sqlSource);
     }
 }

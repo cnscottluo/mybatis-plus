@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.baomidou.mybatisplus.extension.activerecord;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.enums.SqlMethod;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.metadata.TableInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.core.toolkit.*;
 import com.baomidou.mybatisplus.extension.toolkit.SqlHelper;
@@ -86,7 +87,12 @@ public abstract class Model<T extends Model<?>> implements Serializable {
      */
     public boolean deleteById() {
         Assert.isFalse(StringUtils.checkValNull(pkVal()), "deleteById primaryKey is null.");
-        return deleteById(pkVal());
+        SqlSession sqlSession = sqlSession();
+        try {
+            return SqlHelper.retBool(sqlSession.delete(sqlStatement(SqlMethod.DELETE_BY_ID), this));
+        } finally {
+            closeSqlSession(sqlSession);
+        }
     }
 
     /**
@@ -110,7 +116,6 @@ public abstract class Model<T extends Model<?>> implements Serializable {
      */
     public boolean updateById() {
         Assert.isFalse(StringUtils.checkValNull(pkVal()), "updateById primaryKey is null.");
-        // updateById
         Map<String, Object> map = CollectionUtils.newHashMapWithExpectedSize(1);
         map.put(Constants.ENTITY, this);
         SqlSession sqlSession = sqlSession();
@@ -130,7 +135,6 @@ public abstract class Model<T extends Model<?>> implements Serializable {
         Map<String, Object> map = CollectionUtils.newHashMapWithExpectedSize(2);
         map.put(Constants.ENTITY, this);
         map.put(Constants.WRAPPER, updateWrapper);
-        // update
         SqlSession sqlSession = sqlSession();
         try {
             return SqlHelper.retBool(sqlSession.update(sqlStatement(SqlMethod.UPDATE), map));
@@ -210,7 +214,7 @@ public abstract class Model<T extends Model<?>> implements Serializable {
         map.put("page", page);
         SqlSession sqlSession = sqlSession();
         try {
-            page.setRecords(sqlSession.selectList(sqlStatement(SqlMethod.SELECT_PAGE), map));
+            page.setRecords(sqlSession.selectList(sqlStatement(SqlMethod.SELECT_LIST), map));
         } finally {
             closeSqlSession(sqlSession);
         }
@@ -222,12 +226,12 @@ public abstract class Model<T extends Model<?>> implements Serializable {
      *
      * @param queryWrapper 实体对象封装操作类（可以为 null）
      */
-    public Integer selectCount(Wrapper<T> queryWrapper) {
+    public long selectCount(Wrapper<T> queryWrapper) {
         Map<String, Object> map = CollectionUtils.newHashMapWithExpectedSize(1);
         map.put(Constants.WRAPPER, queryWrapper);
         SqlSession sqlSession = sqlSession();
         try {
-            return SqlHelper.retCount(sqlSession.<Integer>selectOne(sqlStatement(SqlMethod.SELECT_COUNT), map));
+            return SqlHelper.retCount(sqlSession.<Long>selectOne(sqlStatement(SqlMethod.SELECT_COUNT), map));
         } finally {
             closeSqlSession(sqlSession);
         }
@@ -270,7 +274,8 @@ public abstract class Model<T extends Model<?>> implements Serializable {
      * 主键值
      */
     public Serializable pkVal() {
-        return (Serializable) ReflectionKit.getFieldValue(this, TableInfoHelper.getTableInfo(this.entityClass).getKeyProperty());
+        TableInfo tableInfo = TableInfoHelper.getTableInfo(this.entityClass);
+        return (Serializable) tableInfo.getPropertyValue(this, tableInfo.getKeyProperty());
     }
 
     /**

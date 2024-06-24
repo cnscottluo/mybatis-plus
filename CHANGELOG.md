@@ -1,4 +1,362 @@
 ﻿# CHANGELOG
+## [v3.5.7] 2024.06.10
+- fix: 修复动态表名处理 update ignore 错误
+- fix: 修复SQLServer2005分页处理空格错误
+- fix: 修复多租户查询出现问题
+- fix: 修正非通用泛型情况下序列化json减少强转
+- fix: 修复代码生成器禁用模板失效
+- fix: 修复分页count优化distinct搭配orderBy处理错误
+- fix: 修复达梦数据库生成代码错误
+- fix: 修复租户插件特殊exists语句会失效
+- fix: 修复sqlite数据库ddl_history错误导致无法创建表
+- fix: 修复DataChangeRecorderInnerInterceptor在Insert时配置忽略无效
+- fix: 修复代码生成器处理不标准的JdbcType导致空指针错误
+- feat: BaseMapper新增批量操作与InsertOrUpdate方法
+- feat: BaseMapper新增批量操作方法返回值List<BatchResult>
+- feat: BaseMapper方法逻辑删除默认支持填充
+- feat: 调整Service层逻辑删除填充逻辑处理
+- feat: 重构批量删除参数填充处理逻辑.
+- feat: 自增自减处理BigDecimal
+- feat: 新增雪花ID配置（支持手动分配workerId与datacenterId或指定网卡信息自动获取方式）
+- feat: 重构ServiceImpl泛型参数提取
+- feat: 修改AES密钥随机性生成
+- feat: UpdateWrapper增加checkSqlInjection方法
+- feat: 调整DDL脚本自动装配逻辑(当无实现时或无mybatis-plus-extension模块时不注入DDL运行bean)
+- feat: 注入方法deleteBatchIds重命名deleteByIds
+- feat: SpringBoot升级至2.7.18和3.2.6
+- feat: 升级kotlin至1.9.24
+- feat: 升级lombok至1.18.32
+
+## [v3.5.6] 2024.04.08
+- fix: 修复通用Service多层代理引发的错误
+- fix: 修复Json类型处理器反序列化泛型丢失原始类型
+- fix: 修复填充器处理器基本类型数组出现强制错误
+- fix: 修复上版本移除掉Page方法保留至PageDto类之中
+- fix: 修复IllegalSQLInnerInterceptor未处理Parenthesis
+- fix: 修复IllegalSQLInnerInterceptor表名或字段名包裹导致无法获取索引信息和索引字段校验问题
+- fix: 修复KtUpdateChainWrapper调用setSql的时候params没有展开
+- fix: 修复useGeneratedShortKey配置失效
+- fix: 修复DataChangeRecorderInnerInterceptor一系列问题
+- feat: 去除sqlFirst与sqlComment转义(如有需要转义操作,请手动调用转义后传入)
+- feat: ServiceImpl修改为抽象类,防止错误直接实例化
+- feat: 重构代码生成器TemplateConfig配置,模板禁用与路径配置更改至对应具体实现之上
+- feat: 支持组合注解
+- feat: 新增 LambdaUpdateWrapper 字段自增 setIncrBy 自减 setDecrBy 方法
+- feat: 获取注入方法时传递org.apache.ibatis.session.Configuration
+- feat: 新增自增主键兼容配置开关(mybatis-plus.global-config.db-config.insert-ignore-auto-increment-column 默认false,开启INSERT语句无视主键字段生成)
+- feat: 新增参数填充器跳过方式(基于MappedStatement#id)
+- feat: 新增SQLite的DDL自动维护功
+- feat: 新增eqSql方法
+- feat: 新增SQL解析线程池
+- feat: 增加雪花ID生成器初始化日志打印(默认超过5秒打印警告日志)
+- feat: 升级mybatis至3.5.16
+- feat: 升级spring-cloud-commons
+- feat: 升级jsqlparser至4.9
+- test: Github增加CI
+- doc: 增加update(Wrapper)相关api无法自动填充注释
+
+## [v3.5.5] 2023.12.24
+- fix: 修复配置databaseId失效
+- fix: 修复自增主键忽略注入错误忽略非自增主键注入问题
+- fix: 修复ChainWrapper模式下GroupBy生成多的逗
+- fix: 修复selectOne缓存问题
+- fix: 修复数据权限多表支持在某些场景下失效问题
+- fix: 修复生成器mysql类型转换器point转换错误
+- fix: 修复kotlin下无法使用父类属性操作
+- fix: 修复自动注入DdlApplicationRunner返回null导致的高版本springboot启动错误
+- fix: 修复生成器代码提示的RuntimeUtils安全性漏洞问题
+- feat: 新增fastjson2支持
+- feat: 升级gradle-wrapper至8.4
+- feat: 升级kotlin-gradle-plugin至1.9.21
+- feat: 升级mybatis至3.5.15
+- feat: 升级lombok至1.18.30
+- feat: 升级spring-boot3至3.2.0
+- feat: 升级spring-boot2版本mybatis-spring至2.1.2
+- feat: 升级spring-boot3版本mybatis-spring至3.0.3
+- feat: 移除通用service中saveOrUpdate的事务
+- feat: 支持Trino,Presto,GBase8s-pg,SUNDB数据库
+
+## [v3.5.4.1] 2023.11.4
+- fix: 修复Aop增强Mapper层导致的转换错误.
+
+## [v3.5.4] 2023.10.22
+
+- fix: 修复Insert无字段时执行SQL报错.
+- fix: 修复高版本JDK下lambda无法执行IDEA调试.
+- fix: 修复LambdaQuery中select,groupBy,orderBy,orderByAsc,orderByDesc提示的警告,新增对应doXxx方法支持重写(不兼容改动,api方法做了final处理).
+- fix: 修复inject-sql-session-on-mapper-scan无配置提示.
+- fix: 修复@OrderBy搭配@TableId排序字段错误(不兼容改动,com.baomidou.mybatisplus.core.metadata.TableInfo.orderByFields调整了类型).
+- fix: 修复Service中根据主键逻辑删除时类型不匹配导致的错误.
+- fix: 修复分页插件Count与自定义ResultHandler冲突.
+- fix: 修复字段填充处理器可能会出现重入问题
+- feat: 新增自增主键字段是否允许插入控制,可使用方法注入覆盖Insert(boolean ignoreAutoIncrementColumn)或Insert(String name, boolean ignoreAutoIncrementColumn)控制自增主键是否支持写入行为.
+- feat: ActiveRecord模式下deleteById(逻辑删除)方法支持自动填充功能.
+- feat: 内置泛型提取,支持非Spring体系项目使用.
+- feat: BaseMapper新增update(wrapper)更新方法.
+- feat: BaseMapper新增流式查询方法对大数据查询支持.
+- feat: 代码生成器元数据信息公开tableName与columnName字段访问.
+- feat: 新增mybatis-plus-spring-boot3-starter与mybatis-plus-spring-boot3-starter-test支持SpringBoot3.
+- feat: 支持插件缺省注入,当无MybatisPlusInterceptor注入时,支持com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor自动注入.
+- feat: 升级源码Jdk开发版本至Java21.
+- feat: 升级gradle-wrapper至8.4-rc-1.
+- feat: 升级kotlin-gradle-plugin至1.9.20-Beta.
+- feat: 升级SpringBoot2.x版本至2.7.15.
+- feat: 升级lombok至1.18.30.
+- opt: mybatis-plus-extension中mybatis-spring依赖修改为可选依赖(不兼容改动,如果项目在非spring或非springBoot下使用到了请手动添加依赖).
+- opt: spring-boot-starter减少无用的配置提示(不兼容改动,调整了com.baomidou.mybatisplus.autoconfigure.MybatisPlusProperties.configuration类型).
+- opt: 字段填充处理器提取去除固定参数提取,支持更宽松的mapper方法参数提取填充处理,
+- opt: 去除com.baomidou.mybatisplus.core.toolkit.ReflectionKit.setAccessible方法调用,防止高版本Jdk移除
+- opt: 调整selectOne方法(配合流式处理,最多提取两行数据,日志不再打印总记录数).
+- opt: 优化selectObjs方法返回值,减少类型强制转换.
+- opt: 通用Service支持多SqlSessionFactory注入.
+- opt: 优化TableInfo.newInstance创建实例方法.
+- opt: 去除多余的@SuppressWarnings("serial")
+
+
+## [v3.5.3.2] 2023.08.08
+
+- feat: 升级mybatis至3.5.13,mybatis-spring至2.1.1
+- feat: jsqlparser提供统一解析类,可配置解析函数,并加入缓存选项
+- feat: 增加Sequence初始化debug日志
+- feat: 参数填充器支持多参数填充
+- feat: BaseMapper新增selectMaps(page, wrapper)与selectList(page, wrapper)方法
+- feat: 乐观锁字段支持 java.time.Instant
+- feat: `wrapper#apply`支持配置`mapping`比如`column={0,javaType=int,jdbcType=NUMERIC,typeHandler=xxx.xxx.MyTypeHandler}`
+- feat: 调整 QueryWrapper 需要主动开启检查 SQL 注入过滤（移除掉wrapper的orderby的sql过滤功能）
+- feat: 新增星瑞格数据库支持
+- feat: `updateWrapper#setSql`方法支持`动态入参`参考`wrapper#apply`方法
+- feat: 自动 SQL 维护 DDL 支持 SQL 执行存储过程
+- perf: `ktWrapper`加强泛型限制
+- fix: 修复在选择springdoc文档注释时entity描述异常
+- fix: 在主键的`IdType`为`AUTO`的情况下,`Table#getAllInsertSqlColumnMaybeIf("xx.")`所生成sql错误问题
+- fix: 租户插件支持`update set subSelect`的情况
+- fix: 修复高版本Jdk提示非法反射警告(Illegal reflective access by com.baomidou.mybatisplus.core.toolkit.SetAccessibleAction)
+- fix: 修复高版本Jdk插件动态代理反射错误 (Unable to make field protected java.lang.reflect.InvocationHandler java.lang.reflect.Proxy.h accessible)
+- fix: 修复路径替换将原有的“.”替换成了文件分隔符“/”
+- fix: 修复Beetl模板引擎无法生成注释
+- fix: 修复Types.DOUBLE类型无法映射
+- fix: 修复转换父类公共字段报错
+- fix: 修复生成器无法通过cfg.取值
+- fix: 修复单元测试下MockBean时事务回滚失败
+- fix: 修复Warpper类nonEmptyOfWhere方法命名不规范,导致Ognl未正确缓存带来的执行开销
+- fix: ClickHouseQuery类的tableComment()方法返回表注释字段为comment
+- fix: 修复在选择springdoc文档注释时entity描述异常问题
+- fix: Table\#getAllInsertSqlColumnMaybeIf("xx.")下的sql生成错误问题
+- fix: Db类增加根据实体不为空的字段条件查询方法重载
+- fix: 生成器对于Kotlin的Entity文件的superEntityClass的错误
+- fix: 修复springdoc freemarker模式下 表注释取值取不到
+- opt: 增强参数填充处理器,防止因参数名称与填充名称一致类型不匹配导致转换错误
+- opt: 优化方法注入,去除SelectPage,SelectMapsPage,SelectByMap,DeleteByMap注入
+- opt: 减少MappedStatement堆内存占用
+- opt: 解决PluginUtils重复获取元数据带来的性能消耗
+- opt: 注入方法去除多余的换行符
+- opt: 去除SqlRunner持有的sqlSessionFactory变量
+- opt: 解决Sequence初始化多次问题(自定义情况下可不创建默认主键生成器)
+- opt: 优化 SqlHelper#getMapper 返回泛型
+- opt: 去除SqlRunner持有的sqlSessionFactory变量
+- docs: 修正DdlHelper注释错误
+
+
+## [v3.5.3.1] 2022.12.29
+
+- bug:生成模块pg和dm语句模式名增加
+- feat: 优化 ChainWrapper#getEntityClass
+- fix: 修复在 IService.lambdaQuery().one() 使用场景在数据库无数据时报错问题
+- est 以及租户插件解析sql遇到多表必须给表起别名
+
+
+## [v3.5.3] 2022.12.28
+
+- 多租户插件:多表join表名必需起别名,否则追加的过滤条件不带前缀
+- InterceptorIgnore 不能过滤 selectKey 的问题
+- 分页新增`informix数据库`支持
+- 分页新增`优炫数据库`支持
+- 分页新增`TDengine数据库`支持
+- 分页新增`亚马逊redshift数据库`支持
+- 支持spring-boot 2.7以上版本
+- 雪花id新增反解时间戳方法`Sequence#parseIdTimestamp`
+- BaseMapper.selectCount生成语句加入中`AS total`
+- 修复IllegalSQLInnerInterceptor类ClassCastException异常，并优化日志
+- 移除注解`OrderBy`的过时属性`isDesc`
+- 移除`TableInfo`过时方法
+- 加入`JoinTableInfoInitHandler`类参与`TableInfo`初始化
+- 修复StringUtils.sqlInjectionReplaceBlank方法过滤sql不全，可能会导致sql注入的情况
+- 增加IService.lambdaQuery(entity)支持，写法更便捷
+- 新增数据变更记录（数据审计）插件`DataChangeRecorderInnerInterceptor`
+- 新增查询条件方法 notLikeLeft 和 notLikeRight
+- 数据权限多表解析部分处理优化
+- 允许子类重写 orderBy 基础方法 gitee issues/I61F51
+- 新增Db类，调整 SimpleQuery 类
+- 新增脚本自动维护功能
+- 新增支持手动拦截器忽略策略，例如 `InterceptorIgnoreHelper.handle(IgnoreStrategy.builder().tenantLine(true).build());`
+- 支持 PG 数据字段大写 ID 自增 fixed issues/I4T0YJ
+- 代码生成器重构完成，合并回 MP 核心代码库
+- 代码生成器增加是否生成service接口的开关
+
+
+## [v3.5.2] 2022.06.01
+
+- 升级 mybatis 3.5.10
+- 升级 jsqlparser 4.4
+- 添加 vertical 数据库分页支持
+- 添加对Gbase 8s 数据库支持
+- 添加对 行云 数据库分页的支持
+- 添加对 Firebird 数据库分页的支持
+- 修复参数填充判断错误，标记替换字段常量
+- DbType 清理以及 IDialect 实现类的清理
+- 新增SqlHelper.execute，通过entityClass获取BaseMapper
+- 枚举处理优化,不再需要'typeEnumsPackage'这个配置
+- fix 租户id获取的执行顺序
+- 新增Firebird数据库的KeyGenerator
+- 新增达梦Dm数据库的KeyGenerator
+- Merge pull request #4343 from LK820/fix-IdType.java
+- Merge pull request #4495 from nieqiurong/fix-parameter
+- Merge pull request #4314 from tomalloc/3.0
+
+
+## [v3.5.1] 2022.01.25
+
+- 新增 impala 数据库支~~持
+- 缓存动态获取数据库类型~~
+- 新增可控分配 id 方法 fixed github pull/4231
+- 延迟枚举扫描注册
+- 乐观锁插件支持根据wrapper填充 github pull/3664
+- H2KeyGenerator 语法修改
+- SimpleQuery 优化及Bug修改
+- fixed gitee issues/I4P9EN
+- SybaseDialect 关键词替换优化
+
+
+## [v3.5.0] 2022.01.01
+
+- 升级 mybatis 3.5.9
+- 升级 jsqlparser 4.3
+- 新增移除 Mapper 相关缓存，支持 GroovyClassLoader 动态注入 Mapper
+- 添加动态表名的钩子函数 https://github.com/baomidou/mybatis-plus/pull/3965
+- 注入类 DefaultSqlInjector 优化调整
+- 反射类 ReflectionKit 优化 field -> field 改为 Function.identity()
+- baseMapper 新增方法 exist 方法
+- 解决 sysbase 小写 from 导致 index 取不到正确的索引值问题
+- 新增通过 entityClass 获取 Mapper 方法 `BaseMapper<Entity> mapper = SqlHelper.getMapper(Entity.class);`
+- 注入方法 byId 注入优化
+- 多租户 right join bug https://gitee.com/baomidou/mybatis-plus/issues/I4FP6E  https://github.com/baomidou/mybatis-plus/pull/4035
+- 自定义注入方法名优化 https://github.com/baomidou/mybatis-plus/pull/4159
+- 新增 sap hana 内存数据库
+- 新增 SimpleQuery 工具栏查询
+- SQL 注入验证工具类 代码修改写法
+- 整理字符串常量的使用
+- upgrade license-gradle-plugin version
+- 自定义注入方法名优化 (不兼容)
+- 重载columnsToString方法允许子类调整
+- 修复 et 判断逻辑 fixed gitee issues/I4L4XV
+- 逻辑删除 byId 支持转换为实体删除填充
+
+
+
+## [v3.4.3.4] 2021.09.22
+
+- order by wrapper 存在条件不排序问题处理
+- 解决引入 cloud InetUtils 类编译错误
+- 升级 sql 解析依赖 jsqlparser 版本 4.2
+- fix: 修复 JDK16 中增加模块化校验后，导致 lambda 序列化失败问题
+- fix: java 17 的支持 #I4A7I5
+- bug: fix left join 条件构造会多一个的问题
+- fix: 当逻辑删除字段默认值为null时，阻止全表更新插件失效
+- 分页 count(*) as total
+- 允许注入自定义事务工厂 TransactionFactory
+
+
+## [v3.4.3.3] 2021.09.05
+
+- 移除不在实用类 ISqlParserFilter AbstractJsqlParser 需要使用从旧版本复制
+- 移除全局配置workerId，datacenterId参数，推荐直接初始化identifierGenerator
+- count 方法 Integer 修改为 Long 涉及升级成本【注意】，对于涉及缺陷调整给您造成困扰表示抱歉
+- 修复主键 @0rderby 注解 bug
+- 修复 String 主键删除失败
+- 主键类型增加 BigDecimal BigInteger 支持
+- 隔离 spring 框架强依赖，非 spring 框架用 mp 注入 GenericTypeUtils.setGenericTypeResolver
+
+
+## [v3.4.3.2] 2021.08.21
+
+- 增加 goldilocks 数据库 csiidb 数据库 的支持
+- 增加对南大通用GBase 8s数据库的支持（GBASEDBT)，区别于原有定义（GBASE)
+- 优化 selectOne 查询方式，精简 SQL 注入
+- PropertyMapper.whenNotBlack to whenNotBlank
+- BaseMapper新增deleteById(T entity)方法
+- jsqlparser 版本 4.0 升级 4.1
+- TableInfo新增原生Reflector反射操作.
+- 解决 lambda 构造器在 JDK16 中无法运行的问题
+- wrapper clear 将sqlSegment重置为空串 缓存标志重置为true
+- 注入器调整无主键不注入ById方法
+- 自动构建 resultMap 处理主键获取真正的字段名
+- Wrapper optimized: 优化警告
+- Wrapper 新增 gtSql geSql ltSql leSql 方法
+- 新增对CUBRID数据库的支持
+- fix github pull/3557 乐观锁新增版本号 null 自定义异常，租户插入忽略逻辑允许自定义
+- fix github issues/2931 解决结果集大于 Integer 异常问题
+- fix github issues/3652 k8s 网络获取失败问题
+- fix gitee issues/I3Z2RG 优化 Order By SQL 注入识别率
+- fix gitee issues/3826 优化动态表名处理器
+- fix gitee issues/I3UQH5 修复注解@OrderBy，使用limit 异常
+- fix github issues/3768 mysql 批量自增 bug
+- 修复自动构建resultMap时主键字段映射错误&OrderBySegmentList懒加载执行
+- 源代码升级相关测试依赖，构建环境 gradle 升级为 7.1 新增更多测试用例
+
+
+## [v3.4.3.1] 2021.06.15
+
+- 支持多重继承获取泛型
+- 应要求 pageDto 修改为 PageDTO
+- 分页排序优化
+- TableField 新增 ResultMapping#property 注解支持
+- fixed github pull/3550 优化排序
+- fix #I3T0LA
+- 开放KtUpdateChainWrapper、KtQueryChainWrapper的继承
+- 新增 exists 方法判断 count 存在
+- 优化数据方言获取方式减少对象创建
+- feat GlobalConfig增加whereStrategy属性和适配selectStrategy的getWhereStrategy()方法
+- 扩展 p6spy 优化
+- fix github#3390 SqlRunner.selectPage()方法未释放连接克隆
+- 优化 JDK 默认不推荐泛型数组
+- perf: 替换为 JVM 中本身的方法
+- 当用户指定ID时，不用自动生成，不指定时自增
+- Github Merge pull request #3549 #3555 #3565 #3571 #3587 #3591 #3592 #3595 #3599 #3605 #3606
+- 提供处理Map多key取值工具方法
+- 调整 page 注解泛型 E 为 P 方便阅读
+- Pattern定义为静态常量，优化正则匹配速度
+- Fix 主键添加@OrderBy无效
+- 去除addMappedStatement日志打印
+- NoKeyGenerator Jdbc3KeyGenerator shared instance
+
+## [v3.4.3] 2021.05.21
+
+- 增加瀚高数据库支持
+- 增加注解 Order By 支持默认排序
+- Wrapper exists notExists orderBy groupBy 支持参数绑定
+- Wrapper 支持 setParamAlias 其它优化
+- 优化 KeyGenerator 支持多实现多数据源注入
+- 增强 ServiceImpl 泛型推断，解决多继承与代理问题
+- 新增 PageDto 用于微服务对象传输序列化
+- 新增 Page 提供静态 of 构造方式
+- 增加代理 MethodHandleProxies 对 lambda 调试支持
+- 调整 ActiveRecord 日志对象初始化
+- 调整 ActiveRecord 模式 Model 类开发 pkVal 方法外部可用
+- 删除标记过时代码
+- 优化枚举值获取方式
+- 分页 count 安全处理
+- Sequence 方法支持重写支持
+- 升级 Mybatis 3.5.7
+- 修复自动配置 lazy-initialization 无属性提示
+- 修复 mysql on duplicate key update 字段名判断为表名问题
+- 修复 lambda 条件 npe 异常
+- 重构 lambda 信息提取方法
+- 获取 lambda 信息不在序列化
+- 合并 gitee pulls/ 141
+- fixed github issues/3208 3016
+- fixed github issues/3482 数据权限处理器支持 union all
+- 调整事务未启用打印提示信息
+- 单元测试优化相关依赖升级
 
 ## [v3.4.2] 2021.01.15
 

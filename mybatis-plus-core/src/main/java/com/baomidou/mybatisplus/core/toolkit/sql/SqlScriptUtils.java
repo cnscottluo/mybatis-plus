@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import org.apache.ibatis.type.TypeHandler;
  * @author miemie
  * @since 2018-08-15
  */
-@SuppressWarnings("serial")
 public abstract class SqlScriptUtils implements Constants {
 
     /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,10 @@ import com.p6spy.engine.spy.P6LoadableOptions;
 import com.p6spy.engine.spy.option.P6OptionsRepository;
 
 /**
- * 扩展p6spy
+ * 扩展 p6spy
  *
- * @author nieqiurong 2019/11/10.
+ * @author nieqiurong
+ * @since 2019-11-10
  */
 public class MybatisPlusLogFactory implements P6Factory {
 
@@ -35,6 +36,6 @@ public class MybatisPlusLogFactory implements P6Factory {
 
     @Override
     public JdbcEventListener getJdbcEventListener() {
-        return MybatisPlusLoggingEventListener.INSTANCE;
+        return MybatisPlusLoggingEventListener.getInstance();
     }
 }

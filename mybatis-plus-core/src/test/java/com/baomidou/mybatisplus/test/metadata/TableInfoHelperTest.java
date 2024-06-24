@@ -1,9 +1,6 @@
 package com.baomidou.mybatisplus.test.metadata;
 
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableLogic;
-import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.annotation.Version;
+import com.baomidou.mybatisplus.annotation.*;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.config.GlobalConfig;
 import com.baomidou.mybatisplus.core.exceptions.MybatisPlusException;
@@ -12,12 +9,20 @@ import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.core.toolkit.GlobalConfigUtils;
+import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.apache.ibatis.mapping.ResultMap;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -72,11 +77,78 @@ class TableInfoHelperTest {
         private String name;
     }
 
+    @Documented
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.ANNOTATION_TYPE})
+    @TableField(exist = false)
+    @interface NotExistsField {
+
+    }
+
+    @Documented
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.ANNOTATION_TYPE})
+    @TableId
+    @interface MyId {
+
+    }
+
+    @Documented
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.TYPE, ElementType.ANNOTATION_TYPE})
+    @TableName(schema = "test")
+    @interface MyTable {
+
+    }
+
+    @Documented
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.ANNOTATION_TYPE})
+    @TableLogic(value = "false", delval = "true")
+    @interface MyTableLogic {
+
+    }
+
+
+    @Data
+    @MyTable
+    private static class CustomAnnotation {
+
+        @MyId
+        private Long id;
+
+        private String name;
+
+        @NotExistsField
+        private String test;
+
+        @MyTableLogic
+        private Boolean del;
+    }
+
+    @Test
+    void testCustomAnnotation() {
+        MybatisConfiguration mybatisConfiguration = new MybatisConfiguration();
+        TableInfo tableInfo = TableInfoHelper.initTableInfo(new MapperBuilderAssistant(mybatisConfiguration, ""), CustomAnnotation.class);
+        List<Field> fieldList = TableInfoHelper.getAllFields(CustomAnnotation.class);
+        Assertions.assertThat(fieldList.size()).isEqualTo(3);
+        Assertions.assertThat(TableInfoHelper.isExistTableId(CustomAnnotation.class, Arrays.asList(CustomAnnotation.class.getDeclaredFields()))).isTrue();
+        Assertions.assertThat(TableInfoHelper.isExistTableLogic(CustomAnnotation.class, Arrays.asList(CustomAnnotation.class.getDeclaredFields()))).isTrue();
+        TableFieldInfo logicDeleteFieldInfo = TableInfoHelper.getTableInfo(CustomAnnotation.class).getLogicDeleteFieldInfo();
+        Assertions.assertThat(logicDeleteFieldInfo).isNotNull();
+        Assertions.assertThat(logicDeleteFieldInfo.getLogicDeleteValue()).isNotNull().isEqualTo("true");
+        Assertions.assertThat(logicDeleteFieldInfo.getLogicNotDeleteValue()).isNotNull().isEqualTo("false");
+        Assertions.assertThat(tableInfo.getTableName()).isEqualTo("test.custom_annotation");
+    }
+
 
     @Test
     void testIsExistTableId() {
-        Assertions.assertThat(TableInfoHelper.isExistTableId(Arrays.asList(ModelOne.class.getDeclaredFields()))).isTrue();
-        assertThat(TableInfoHelper.isExistTableId(Arrays.asList(ModelTwo.class.getDeclaredFields()))).isFalse();
+        MybatisConfiguration mybatisConfiguration = new MybatisConfiguration();
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(mybatisConfiguration, ""), ModelOne.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(mybatisConfiguration, ""), ModelTwo.class);
+        Assertions.assertThat(TableInfoHelper.isExistTableId(ModelOne.class, Arrays.asList(ModelOne.class.getDeclaredFields()))).isTrue();
+        assertThat(TableInfoHelper.isExistTableId(ModelTwo.class, Arrays.asList(ModelTwo.class.getDeclaredFields()))).isFalse();
     }
 
     @Test
@@ -143,13 +215,16 @@ class TableInfoHelperTest {
     void testColumnFormat() {
         MybatisConfiguration configuration = new MybatisConfiguration();
         GlobalConfig config = GlobalConfigUtils.defaults();
-        config.getDbConfig().setColumnFormat("pxx_%s");
+        GlobalConfig.DbConfig dbConfig = config.getDbConfig();
+        dbConfig.setColumnFormat("pxx_%s");
+        dbConfig.setTableFormat("mp_%s");
         GlobalConfigUtils.setGlobalConfig(configuration, config);
         TableInfo tableInfo = TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), Logic.class);
         List<TableFieldInfo> fieldList = tableInfo.getFieldList();
         fieldList.forEach(i -> {
             assertThat(i.getColumn()).startsWith("pxx_");
         });
+        assertThat(tableInfo.getTableName()).startsWith("mp_");
     }
 
     @Data
@@ -223,4 +298,38 @@ class TableInfoHelperTest {
     private static class Table2 {
 
     }
+
+
+
+    @Test
+    void testTableAutoResultMap() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+        TableInfo tableInfo = TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), AutoResultMapTable.class);
+        final ResultMap resultMap = tableInfo.getConfiguration().getResultMap(tableInfo.getResultMap());
+
+        assertThat(resultMap)
+            .isNotNull()
+            .extracting(ResultMap::getMappedColumns)
+            .matches((set) -> set.stream().noneMatch(StringUtils::isNotColumnName));
+    }
+
+    @Data
+    @TableName(value = "xxx", autoResultMap = true )
+    private static class AutoResultMapTable{
+
+        @TableId("`id`")
+        private Long id;
+
+        @TableField("`name`")
+        private Long name;
+    }
+
+    @Test
+    void testNewInstance() {
+        TableInfo tableInfo = TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ModelOne.class);
+        ModelOne entity = tableInfo.newInstance();
+        tableInfo.setPropertyValue(entity, tableInfo.getKeyColumn(), 1L);
+        assertThat(entity.id).isNotNull().isEqualTo(1L);
+    }
+
 }

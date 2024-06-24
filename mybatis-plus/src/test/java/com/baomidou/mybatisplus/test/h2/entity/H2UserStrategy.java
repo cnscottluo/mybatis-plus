@@ -1,18 +1,3 @@
-/*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
- */
 package com.baomidou.mybatisplus.test.h2.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
@@ -44,7 +29,7 @@ public class H2UserStrategy extends SuperEntity {
     /**
      * whereStrategy = FieldStrategy.IGNORED 在拼接where条件时是在带上该条件
      */
-    @TableField(value = "name", whereStrategy = FieldStrategy.IGNORED)
+    @TableField(value = "name", whereStrategy = FieldStrategy.ALWAYS)
     private String name;
 
     private AgeEnum age;
@@ -53,7 +38,7 @@ public class H2UserStrategy extends SuperEntity {
     private BigDecimal price;
 
     /* 测试下划线字段命名类型, 字段填充 */
-    @TableField(fill = FieldFill.INSERT, updateStrategy = FieldStrategy.IGNORED)
+    @TableField(fill = FieldFill.INSERT, updateStrategy = FieldStrategy.ALWAYS)
     private Integer testType;
 
     /**
@@ -61,7 +46,7 @@ public class H2UserStrategy extends SuperEntity {
      *
      * @since 2019-5-7 测试updateStrategy
      */
-    @TableField(value = "`desc`", updateStrategy = FieldStrategy.IGNORED)
+    @TableField(value = "`desc`", updateStrategy = FieldStrategy.ALWAYS)
     private String desc;
 
     /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,11 @@ public class SqlCondition {
      * % 两边 %
      */
     public static final String LIKE = "%s LIKE CONCAT('%%',#{%s},'%%')";
+
+    /**
+     * % 两边 % [oracle使用]
+     */
+    public static final String ORACLE_LIKE = "%s LIKE CONCAT(CONCAT('%%',#{%s}),'%%')";
     /**
      * % 左
      */

@@ -2,8 +2,10 @@ package com.baomidou.mybatisplus.core.conditions;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.exceptions.MybatisPlusException;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -21,14 +23,14 @@ class QueryWrapperTest extends BaseWrapperTest {
             .eq("xxx", 123)
             .and(i -> i.eq("andx", 65444).le("ande", 66666))
             .ne("xxx", 222);
-        logSqlWhere("xx",ew,"(xxx = ? AND (andx = ? AND ande <= ?) AND xxx <> ?)");
-        logSqlWhere("xx",ew,"(xxx = ? AND (andx = ? AND ande <= ?) AND xxx <> ?)");
+        logSqlWhere("xx", ew, "(xxx = ? AND (andx = ? AND ande <= ?) AND xxx <> ?)");
+        logSqlWhere("xx", ew, "(xxx = ? AND (andx = ? AND ande <= ?) AND xxx <> ?)");
         ew.gt("x22", 333);
-        logSqlWhere("xx",ew,"(xxx = ? AND (andx = ? AND ande <= ?) AND xxx <> ? AND x22 > ?)");
-        logSqlWhere("xx",ew,"(xxx = ? AND (andx = ? AND ande <= ?) AND xxx <> ? AND x22 > ?)");
+        logSqlWhere("xx", ew, "(xxx = ? AND (andx = ? AND ande <= ?) AND xxx <> ? AND x22 > ?)");
+        logSqlWhere("xx", ew, "(xxx = ? AND (andx = ? AND ande <= ?) AND xxx <> ? AND x22 > ?)");
         ew.orderByAsc("column");
-        logSqlWhere("xx",ew,"(xxx = ? AND (andx = ? AND ande <= ?) AND xxx <> ? AND x22 > ?) ORDER BY column ASC");
-        logSqlWhere("xx",ew,"(xxx = ? AND (andx = ? AND ande <= ?) AND xxx <> ? AND x22 > ?) ORDER BY column ASC");
+        logSqlWhere("xx", ew, "(xxx = ? AND (andx = ? AND ande <= ?) AND xxx <> ? AND x22 > ?) ORDER BY column ASC");
+        logSqlWhere("xx", ew, "(xxx = ? AND (andx = ? AND ande <= ?) AND xxx <> ? AND x22 > ?) ORDER BY column ASC");
         logParams(ew);
     }
 
@@ -90,23 +92,28 @@ class QueryWrapperTest extends BaseWrapperTest {
             .or().gt("id", 1).ge("id", 1)
             .lt("id", 1).le("id", 1)
             .or().between("id", 1, 2).notBetween("id", 1, 3)
-            .like("id", 1).notLike("id", 1)
+            .like("id", 1).notLike("id", 1).notLikeLeft("id", 3).notLikeRight("id", 4)
             .or().likeLeft("id", 1).likeRight("id", 1);
-        logSqlWhere("测试 Compare 下的方法", queryWrapper, "(column1 = ? AND column0 = ? AND nullColumn IS NULL AND column1 = ? AND column0 = ? AND nullColumn IS NULL AND id = ? AND id <> ? OR id > ? AND id >= ? AND id < ? AND id <= ? OR id BETWEEN ? AND ? AND id NOT BETWEEN ? AND ? AND id LIKE ? AND id NOT LIKE ? OR id LIKE ? AND id LIKE ?)");
+        logSqlWhere("测试 Compare 下的方法", queryWrapper, "(column1 = ? AND column0 = ? AND nullColumn IS NULL AND column1 = ? AND column0 = ? AND nullColumn IS NULL AND id = ? AND id <> ? OR id > ? AND id >= ? AND id < ? AND id <= ? OR id BETWEEN ? AND ? AND id NOT BETWEEN ? AND ? AND id LIKE ? AND id NOT LIKE ? AND id NOT LIKE ? AND id NOT LIKE ? OR id LIKE ? AND id LIKE ?)");
         logParams(queryWrapper);
     }
 
     @Test
     void testFunc() {
+        Entity entity = new Entity();
         QueryWrapper<Entity> queryWrapper = new QueryWrapper<Entity>()
             .isNull("nullColumn").or().isNotNull("notNullColumn")
             .orderByAsc("id").orderByDesc("name", "name2")
             .groupBy("id").groupBy("name", "id2", "name2")
             .in("inColl", getList()).or().notIn("notInColl", getList())
             .in("inArray").notIn("notInArray", 5, 6, 7)
+            .eqSql("eqSql", "1")
             .inSql("inSql", "1,2,3,4,5").notInSql("inSql", "1,2,3,4,5")
-            .having("sum(age) > {0}", 1).having("id is not null");
-        logSqlWhere("测试 Func 下的方法", queryWrapper, "(nullColumn IS NULL OR notNullColumn IS NOT NULL AND inColl IN (?,?) OR notInColl NOT IN (?,?) AND inArray IN () AND notInArray NOT IN (?,?,?) AND inSql IN (1,2,3,4,5) AND inSql NOT IN (1,2,3,4,5)) GROUP BY id,name,id2,name2 HAVING sum(age) > ? AND id is not null ORDER BY id ASC,name DESC,name2 DESC");
+            .gtSql("gtSql", "1,2,3,4,5").ltSql("ltSql", "1,2,3,4,5")
+            .geSql("geSql", "1,2,3,4,5").leSql("leSql", "1,2,3,4,5")
+            .having("sum(age) > {0}", 1).having("id is not null")
+            .func(entity.getId() != null, j -> j.eq("id", entity.getId()));// 不会npe,也不会加入sql
+        logSqlWhere("测试 Func 下的方法", queryWrapper, "(nullColumn IS NULL OR notNullColumn IS NOT NULL AND inColl IN (?,?) OR notInColl NOT IN (?,?) AND inArray IN () AND notInArray NOT IN (?,?,?) AND eqSql = (1) AND inSql IN (1,2,3,4,5) AND inSql NOT IN (1,2,3,4,5) AND gtSql > (1,2,3,4,5) AND ltSql < (1,2,3,4,5) AND geSql >= (1,2,3,4,5) AND leSql <= (1,2,3,4,5)) GROUP BY id,name,id2,name2 HAVING sum(age) > ? AND id is not null ORDER BY id ASC,name DESC,name2 DESC");
         logParams(queryWrapper);
     }
 
@@ -159,6 +166,26 @@ class QueryWrapperTest extends BaseWrapperTest {
             .notExists("select 1 from xxx where id = {0} and name = {1}", 1, "Bob");
         logSqlWhere("testNotExistsValue", wrapper, "(a = ? AND NOT EXISTS (select 1 from xxx where id = ? and name = ?))");
         logParams(wrapper);
+    }
+
+    @Test
+    void testCheckSqlInjection() {
+        QueryWrapper qw = new QueryWrapper<Entity>().checkSqlInjection().eq("a", "b");
+        Assertions.assertEquals("WHERE (a = #{ew.paramNameValuePairs.MPGENVAL1})", qw.getCustomSqlSegment());
+
+        qw.orderByAsc("select 1 from xxx");
+        Assertions.assertThrows(MybatisPlusException.class, () -> qw.getCustomSqlSegment());
+    }
+
+    @Test
+    void testGroupBy(){
+        Assertions.assertEquals("GROUP BY id", new QueryWrapper<Entity>().groupBy("id").getSqlSegment().trim());
+        Assertions.assertEquals("GROUP BY id,name", new QueryWrapper<Entity>().groupBy(Arrays.asList("id", "name")).getSqlSegment().trim());
+        Assertions.assertEquals("GROUP BY id,name", new QueryWrapper<Entity>().groupBy(List.of("id", "name")).getSqlSegment().trim());
+        Assertions.assertEquals("GROUP BY id,name", new QueryWrapper<Entity>().groupBy(new ArrayList<>() {{
+            add("id");
+            add("name");
+        }}).getSqlSegment().trim());
     }
 
     private List<Object> getList() {

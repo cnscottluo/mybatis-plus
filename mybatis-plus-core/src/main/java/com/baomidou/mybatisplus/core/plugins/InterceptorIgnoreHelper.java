@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,7 @@ package com.baomidou.mybatisplus.core.plugins;
 
 import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.toolkit.*;
-import lombok.Builder;
-import lombok.Data;
+import org.apache.ibatis.executor.keygen.SelectKeyGenerator;
 
 import java.lang.reflect.Method;
 import java.util.HashSet;
@@ -37,7 +36,33 @@ public abstract class InterceptorIgnoreHelper {
      * SQL 解析缓存
      * key 可能是 mappedStatement 的 ID,也可能是 class 的 name
      */
-    private static final Map<String, InterceptorIgnoreCache> INTERCEPTOR_IGNORE_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, IgnoreStrategy> IGNORE_STRATEGY_CACHE = new ConcurrentHashMap<>();
+    /**
+     *  本地线程拦截器忽略策略缓存
+     */
+    private static final ThreadLocal<IgnoreStrategy> IGNORE_STRATEGY_LOCAL = new ThreadLocal<>();
+
+    /**
+     * 手动设置拦截器忽略执行策略，权限大于注解权限
+     * <p>
+     * InterceptorIgnoreHelper.handle(IgnoreStrategy.builder().tenantLine(true).build());
+     * </p>
+     * <p>
+     * 注意，需要手动关闭调用方法 InterceptorIgnoreHelper.clearIgnoreStrategy();
+     * </p>
+     *
+     * @param ignoreStrategy {@link IgnoreStrategy}
+     */
+    public static void handle(IgnoreStrategy ignoreStrategy) {
+        IGNORE_STRATEGY_LOCAL.set(ignoreStrategy);
+    }
+
+    /**
+     * 清空本地忽略策略
+     */
+    public static void clearIgnoreStrategy() {
+        IGNORE_STRATEGY_LOCAL.remove();
+    }
 
     /**
      * 初始化缓存
@@ -46,12 +71,12 @@ public abstract class InterceptorIgnoreHelper {
      *
      * @param mapperClass Mapper Class
      */
-    public synchronized static InterceptorIgnoreCache initSqlParserInfoCache(Class<?> mapperClass) {
+    public synchronized static IgnoreStrategy initSqlParserInfoCache(Class<?> mapperClass) {
         InterceptorIgnore ignore = mapperClass.getAnnotation(InterceptorIgnore.class);
         if (ignore != null) {
             String key = mapperClass.getName();
-            InterceptorIgnoreCache cache = buildInterceptorIgnoreCache(key, ignore);
-            INTERCEPTOR_IGNORE_CACHE.put(key, cache);
+            IgnoreStrategy cache = buildIgnoreStrategy(key, ignore);
+            IGNORE_STRATEGY_CACHE.put(key, cache);
             return cache;
         }
         return null;
@@ -65,62 +90,69 @@ public abstract class InterceptorIgnoreHelper {
      * @param mapperAnnotation Mapper Class Name
      * @param method           Method
      */
-    public static void initSqlParserInfoCache(InterceptorIgnoreCache mapperAnnotation, String mapperClassName, Method method) {
-        InterceptorIgnore ignore = method.getAnnotation(InterceptorIgnore.class);
+    public static void initSqlParserInfoCache(IgnoreStrategy mapperAnnotation, String mapperClassName, Method method) {
+        InterceptorIgnore ignoreStrategy = method.getAnnotation(InterceptorIgnore.class);
         String key = mapperClassName.concat(StringPool.DOT).concat(method.getName());
         String name = mapperClassName.concat(StringPool.HASH).concat(method.getName());
-        if (ignore != null) {
-            InterceptorIgnoreCache methodCache = buildInterceptorIgnoreCache(name, ignore);
+        if (ignoreStrategy != null) {
+            IgnoreStrategy methodCache = buildIgnoreStrategy(name, ignoreStrategy);
             if (mapperAnnotation == null) {
-                INTERCEPTOR_IGNORE_CACHE.put(key, methodCache);
+                IGNORE_STRATEGY_CACHE.put(key, methodCache);
                 return;
             }
-            INTERCEPTOR_IGNORE_CACHE.put(key, chooseCache(mapperAnnotation, methodCache));
+            IGNORE_STRATEGY_CACHE.put(key, chooseCache(mapperAnnotation, methodCache));
         }
     }
 
     public static boolean willIgnoreTenantLine(String id) {
-        return willIgnore(id, InterceptorIgnoreCache::getTenantLine);
+        return willIgnore(id, IgnoreStrategy::getTenantLine);
     }
 
     public static boolean willIgnoreDynamicTableName(String id) {
-        return willIgnore(id, InterceptorIgnoreCache::getDynamicTableName);
+        return willIgnore(id, IgnoreStrategy::getDynamicTableName);
     }
 
     public static boolean willIgnoreBlockAttack(String id) {
-        return willIgnore(id, InterceptorIgnoreCache::getBlockAttack);
+        return willIgnore(id, IgnoreStrategy::getBlockAttack);
     }
 
     public static boolean willIgnoreIllegalSql(String id) {
-        return willIgnore(id, InterceptorIgnoreCache::getIllegalSql);
+        return willIgnore(id, IgnoreStrategy::getIllegalSql);
     }
 
     public static boolean willIgnoreDataPermission(String id) {
-        return willIgnore(id, InterceptorIgnoreCache::getDataPermission);
-    }
-
-    public static boolean willIgnoreSharding(String id) {
-        return willIgnore(id, InterceptorIgnoreCache::getSharding);
+        return willIgnore(id, IgnoreStrategy::getDataPermission);
     }
 
     public static boolean willIgnoreOthersByKey(String id, String key) {
         return willIgnore(id, i -> CollectionUtils.isNotEmpty(i.getOthers()) && i.getOthers().getOrDefault(key, false));
     }
 
-    public static boolean willIgnore(String id, Function<InterceptorIgnoreCache, Boolean> function) {
-        InterceptorIgnoreCache cache = INTERCEPTOR_IGNORE_CACHE.get(id);
-        if (cache == null) {
-            cache = INTERCEPTOR_IGNORE_CACHE.get(id.substring(0, id.lastIndexOf(StringPool.DOT)));
+    public static boolean willIgnore(String id, Function<IgnoreStrategy, Boolean> function) {
+        // 1，优化获取本地忽略策略
+        IgnoreStrategy ignoreStrategy = IGNORE_STRATEGY_LOCAL.get();
+        if (null == ignoreStrategy) {
+            // 2，不存在取注解策略
+            ignoreStrategy = IGNORE_STRATEGY_CACHE.get(id);
         }
-        if (cache != null) {
-            Boolean apply = function.apply(cache);
+        if (ignoreStrategy == null && id.endsWith(SelectKeyGenerator.SELECT_KEY_SUFFIX)) {
+            // 支持一下 selectKey
+            ignoreStrategy = IGNORE_STRATEGY_CACHE.get(id.substring(0, id.length() - SelectKeyGenerator.SELECT_KEY_SUFFIX.length()));
+        }
+        if (ignoreStrategy == null) {
+            // fixed github issues/5342
+            int index = id.lastIndexOf(StringPool.DOT);
+            ignoreStrategy = IGNORE_STRATEGY_CACHE.get(index > 0 ? id.substring(0, index) : id);
+        }
+        if (ignoreStrategy != null) {
+            Boolean apply = function.apply(ignoreStrategy);
             return apply != null && apply;
         }
         return false;
     }
 
-    private static InterceptorIgnoreCache chooseCache(InterceptorIgnoreCache mapper, InterceptorIgnoreCache method) {
-        return InterceptorIgnoreCache.builder()
+    private static IgnoreStrategy chooseCache(IgnoreStrategy mapper, IgnoreStrategy method) {
+        return IgnoreStrategy.builder()
             .tenantLine(chooseBoolean(mapper.getTenantLine(), method.getTenantLine()))
             .dynamicTableName(chooseBoolean(mapper.getDynamicTableName(), method.getDynamicTableName()))
             .blockAttack(chooseBoolean(mapper.getBlockAttack(), method.getBlockAttack()))
@@ -130,14 +162,13 @@ public abstract class InterceptorIgnoreHelper {
             .build();
     }
 
-    private static InterceptorIgnoreCache buildInterceptorIgnoreCache(String name, InterceptorIgnore ignore) {
-        return InterceptorIgnoreCache.builder()
+    private static IgnoreStrategy buildIgnoreStrategy(String name, InterceptorIgnore ignore) {
+        return IgnoreStrategy.builder()
             .tenantLine(getBoolean("tenantLine", name, ignore.tenantLine()))
             .dynamicTableName(getBoolean("dynamicTableName", name, ignore.dynamicTableName()))
             .blockAttack(getBoolean("blockAttack", name, ignore.blockAttack()))
             .illegalSql(getBoolean("illegalSql", name, ignore.illegalSql()))
             .dataPermission(getBoolean("dataPermission", name, ignore.dataPermission()))
-            .sharding(getBoolean("sharding", name, ignore.sharding()))
             .others(getOthers(name, ignore.others()))
             .build();
     }
@@ -146,10 +177,10 @@ public abstract class InterceptorIgnoreHelper {
         if (StringUtils.isBlank(value)) {
             return null;
         }
-        if ("1".equals(value) || "true".equals(value) || "on".equals(value)) {
+        if (StringPool.ONE.equals(value) || StringPool.TRUE.equals(value) || StringPool.ON.equals(value)) {
             return true;
         }
-        if ("0".equals(value) || "false".equals(value) || "off".equals(value)) {
+        if (StringPool.ZERO.equals(value) || StringPool.FALSE.equals(value) || StringPool.OFF.equals(value)) {
             return false;
         }
         throw ExceptionUtils.mpe("unsupported value \"%s\" by `@InterceptorIgnore#%s` on top of \"%s\"", value, node, name);
@@ -203,17 +234,5 @@ public abstract class InterceptorIgnoreHelper {
         Map<String, Boolean> map = CollectionUtils.newHashMapWithExpectedSize(keys.size());
         methodKeys.forEach(k -> map.put(k, chooseBoolean(mapper.get(k), method.get(k))));
         return map;
-    }
-
-    @Data
-    @Builder
-    public static class InterceptorIgnoreCache {
-        private Boolean tenantLine;
-        private Boolean dynamicTableName;
-        private Boolean blockAttack;
-        private Boolean illegalSql;
-        private Boolean dataPermission;
-        private Boolean sharding;
-        private Map<String, Boolean> others;
     }
 }

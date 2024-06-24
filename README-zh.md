@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/baomidou/mybatis-plus">
+  <a href="https://github.com/baomidou/mybatis-plus" target="_blank">
    <img alt="Mybatis-Plus-Logo" src="https://raw.githubusercontent.com/baomidou/logo/master/mybatis-plus-logo-new-mini.png">
   </a>
 </p>
@@ -18,11 +18,60 @@
   </a>
 </p>
 
+[企业版 Mybatis-Mate 高级特性](https://gitee.com/baomidou/mybatis-mate-examples)
+
 # 简介 | Intro
 
 Mybatis 增强工具包 - 只做增强不做改变，简化`CRUD`操作
 
-技术讨论 QQ 群 ： 183066216 、  576493122 🈵  、  648281531 🈵 、  643509491 🈵
+添加 `微信 wx153666` 备注进 mp 群
+
+> 不允许非法项目使用，后果自负
+
+# 特别用户
+
+<p>
+  <a href="https://doc.flowlong.com?from=mp" target="_blank">
+   <img alt="aizuda-Logo" src="https://foruda.gitee.com/images/1715955628416785121/954c16ef_12260.png" width="160px" height="50px">
+  </a>
+  <a href="https://gitee.com/gz-yami/mall4j?from=mp" target="_blank">
+   <img alt="mall4j-Logo" src="https://foruda.gitee.com/images/1716776021837872678/87883b39_12260.gif" width="160px" height="50px">
+  </a>
+  <a href="http://github.crmeb.net/u/MyBatis-Plus" target="_blank">
+   <img alt="crmeb-Logo" src="https://foruda.gitee.com/images/1685339553088166856/b0a6b1a4_12260.gif" width="160px" height="50px">
+  </a>
+</p>
+
+
+# 依赖引用
+
+- Latest Version: [![Maven Central](https://img.shields.io/maven-central/v/com.baomidou/mybatis-plus.svg)](https://search.maven.org/search?q=g:com.baomidou%20a:mybatis-*)
+    - Maven:
+    - SpringBoot2
+      ```xml
+      <dependency>
+          <groupId>com.baomidou</groupId>
+          <artifactId>mybatis-plus-boot-starter</artifactId>
+          <version>Latest Version</version>
+      </dependency>
+      ```
+    - SpringBoot3
+      ```xml
+      <dependency>
+        <groupId>com.baomidou</groupId>
+        <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+        <version>Latest Version</version>
+      </dependency>
+      ```
+    - Gradle
+    - SpringBoot2
+      ```groovy
+      compile group: 'com.baomidou', name: 'mybatis-plus-boot-starter', version: 'Latest Version'
+      ```
+    - SpringBoot3
+      ```groovy
+      compile group: 'com.baomidou', name: 'mybatis-plus-spring-boot3-starter', version: 'Latest Version'
+      ```
 
 # 优点 | Advantages
 
@@ -40,10 +89,11 @@ Mybatis 增强工具包 - 只做增强不做改变，简化`CRUD`操作
 
 ## 相关链接 | Links
 
-- [文档](https://mybatis.plus)
+- [文档](https://baomidou.com)
 - [代码生成](https://github.com/baomidou/generator)
 - [功能示例](https://gitee.com/baomidou/mybatis-plus-samples)
 - [展示](https://github.com/baomidou/awesome-mybatis-plus)
+- [企业版 Mybatis-Mate 高级特性](https://gitee.com/baomidou/mybatis-mate-examples)
 
 # 原理 | Principle
 
@@ -57,16 +107,6 @@ Mybatis 增强工具包 - 只做增强不做改变，简化`CRUD`操作
 
 [SSM-实战 Demo](https://gitee.com/juapk/SpringWind)
 
-# Latest Version: [![Maven Central](https://img.shields.io/maven-central/v/com.baomidou/mybatis-plus.svg)](https://search.maven.org/search?q=g:com.baomidou%20a:mybatis-*)
-
-``` xml
-<dependency>
-    <groupId>com.baomidou</groupId>
-    <artifactId>mybatis-plus</artifactId>
-    <version>Latest Version</version>
-</dependency>
-```
-
 # 其他开源项目 | Other Project
 
 - [基于Cookie的SSO中间件 Kisso](https://gitee.com/baomidou/kisso)
@@ -75,7 +115,7 @@ Mybatis 增强工具包 - 只做增强不做改变，简化`CRUD`操作
 - [基于 pac4j-jwt 的快速集成的 web 安全组件 shaun](https://gitee.com/baomidou/shaun)
 
 # 王者荣耀
-![MPTrophy](https://images.gitee.com/uploads/images/2021/0126/235832_37a17e33_12260.jpeg "mybatis-plus.jpg")
+![MPTrophy](https://foruda.gitee.com/images/1703034397683946868/c9bf2ba5_12260.jpeg "mybatis-plus.jpg")
 
 # 期望 | Futures
 
@@ -84,10 +124,6 @@ Mybatis 增强工具包 - 只做增强不做改变，简化`CRUD`操作
 # 版权 | License
 
 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
-
-# 捐赠 | Donate
-
-> [捐赠记录,感谢你们的支持！](https://gitee.com/baomidou/kisso/wikis/%E6%8D%90%E8%B5%A0%E8%AE%B0%E5%BD%95)
 
 ![捐赠 mybatis-plus](https://gitee.com/uploads/images/2015/1222/211207_0acab44e_12260.png "支持一下mybatis-plus")
 

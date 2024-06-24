@@ -11,11 +11,11 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import javax.annotation.Resource;
 
 import static com.baomidou.mybatisplus.core.enums.SqlMethod.UPSERT_ONE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,12 +25,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Created date: 2019/12/21 16:35
  */
 @DirtiesContext
-@TestMethodOrder(MethodOrderer.Alphanumeric.class)
+@TestMethodOrder(MethodOrderer.MethodName.class)
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(locations = {"classpath:phoenix/spring-test-phoenix.xml"})
 public class PhoenixTest {
 
-    @Resource(name = "phoenixTestInfoMapper")
+    @Autowired
     PhoenixTestInfoMapper mapper;
 
     @Test

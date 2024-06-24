@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.Random;
 
 /**
  * AES CBC模式加密工具类
@@ -31,6 +31,8 @@ import java.util.Base64;
  * @since 2020-05-23
  */
 public class AES {
+
+    private static final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
     /**
      * 加密
@@ -100,10 +102,17 @@ public class AES {
     /**
      * 生成一个随机字符串密钥
      *
-     * @return
-     * @throws NoSuchAlgorithmException
+     * @return 密钥
      */
     public static String generateRandomKey() {
-        return IdWorker.get32UUID().substring(0, 16);
+        Random random = new Random();
+        StringBuilder buffer = new StringBuilder();
+        int keySize = 16;
+        int length = CHARS.length();
+        while (keySize-- != 0) {
+            buffer.append(CHARS.charAt(random.nextInt(length)));
+        }
+        return buffer.toString();
     }
+
 }

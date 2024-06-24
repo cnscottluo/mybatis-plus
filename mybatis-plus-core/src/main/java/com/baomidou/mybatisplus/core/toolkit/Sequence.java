@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,14 @@
  */
 package com.baomidou.mybatisplus.core.toolkit;
 
-import com.baomidou.mybatisplus.core.exceptions.MybatisPlusException;
 import org.apache.ibatis.logging.Log;
 import org.apache.ibatis.logging.LogFactory;
 
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.net.UnknownHostException;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 分布式高效有序 ID 生产黑科技(sequence)
@@ -36,11 +34,18 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class Sequence {
 
+    /**
+     * 自动寻找网卡时,默认启动最大时间间隔,超过这个初始化时间打印warn日志
+     *
+     * @since 3.5.6
+     */
+    public static long MAX_START_INTERVAL_TIME = TimeUnit.SECONDS.toNanos(5);
+
     private static final Log logger = LogFactory.getLog(Sequence.class);
     /**
      * 时间起始标记点，作为基准，一般取系统的最近时间（一旦确定不能变动）
      */
-    private final long twepoch = 1288834974657L;
+    private static final long twepoch = 1288834974657L;
     /**
      * 机器标识位数
      */
@@ -74,39 +79,29 @@ public class Sequence {
      * 上次生产 ID 时间戳
      */
     private long lastTimestamp = -1L;
-
-    private InetAddress inetAddress;
-
     /**
-     * @deprecated 3.4.3
+     * IP 地址
      */
-    @Deprecated
-    public Sequence() {
-        this.inetAddress = getLocalHost();
-        this.datacenterId = getDatacenterId(maxDatacenterId);
-        this.workerId = getMaxWorkerId(datacenterId, maxWorkerId);
-    }
+    private InetAddress inetAddress;
 
     public Sequence(InetAddress inetAddress) {
         this.inetAddress = inetAddress;
+        long start = System.nanoTime();
         this.datacenterId = getDatacenterId(maxDatacenterId);
         this.workerId = getMaxWorkerId(datacenterId, maxWorkerId);
-    }
-
-    private InetAddress getLocalHost() {
-        try {
-            return InetAddress.getLocalHost();
-        } catch (UnknownHostException e) {
-            throw new MybatisPlusException(e);
+        long end = System.nanoTime();
+        if (end - start > Sequence.MAX_START_INTERVAL_TIME) {
+            // 一般这里启动慢,是未指定inetAddress时出现,请查看本机hostname,将本机hostname写入至本地系统hosts文件之中进行解析
+            logger.warn("Initialization Sequence Very Slow! Get datacenterId:" + this.datacenterId + " workerId:" + this.workerId);
+        } else {
+            initLog();
         }
     }
 
-    /**
-     * @return InetAddress
-     * @since 3.4.3
-     */
-    protected InetAddress getInetAddress() {
-        return Optional.ofNullable(this.inetAddress).orElseGet(this::getLocalHost);
+    private void initLog() {
+        if (logger.isDebugEnabled()) {
+            logger.debug("Initialization Sequence datacenterId:" + this.datacenterId + " workerId:" + this.workerId);
+        }
     }
 
     /**
@@ -117,11 +112,12 @@ public class Sequence {
      */
     public Sequence(long workerId, long datacenterId) {
         Assert.isFalse(workerId > maxWorkerId || workerId < 0,
-                String.format("worker Id can't be greater than %d or less than 0", maxWorkerId));
+            String.format("worker Id can't be greater than %d or less than 0", maxWorkerId));
         Assert.isFalse(datacenterId > maxDatacenterId || datacenterId < 0,
-                String.format("datacenter Id can't be greater than %d or less than 0", maxDatacenterId));
+            String.format("datacenter Id can't be greater than %d or less than 0", maxDatacenterId));
         this.workerId = workerId;
         this.datacenterId = datacenterId;
+        initLog();
     }
 
     /**
@@ -149,8 +145,21 @@ public class Sequence {
     protected long getDatacenterId(long maxDatacenterId) {
         long id = 0L;
         try {
-            NetworkInterface network = NetworkInterface.getByInetAddress(this.getInetAddress());
-            if (network == null) {
+            if (null == this.inetAddress) {
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Use localhost address ");
+                }
+                this.inetAddress = InetAddress.getLocalHost();
+            }
+            if (logger.isDebugEnabled()) {
+                logger.debug("Get " + inetAddress + " network interface ");
+            }
+            NetworkInterface network = NetworkInterface.getByInetAddress(this.inetAddress);
+            if (logger.isDebugEnabled()) {
+                logger.debug("Get network interface info: " + network);
+            }
+            if (null == network) {
+                logger.warn("Unable to get network interface for " + inetAddress);
                 id = 1L;
             } else {
                 byte[] mac = network.getHardwareAddress();
@@ -198,7 +207,7 @@ public class Sequence {
                 timestamp = tilNextMillis(lastTimestamp);
             }
         } else {
-            // 不同毫秒内，序列号置为 1 - 3 随机数
+            // 不同毫秒内，序列号置为 1 - 2 随机数
             sequence = ThreadLocalRandom.current().nextLong(1, 3);
         }
 
@@ -206,9 +215,9 @@ public class Sequence {
 
         // 时间戳部分 | 数据中心部分 | 机器标识部分 | 序列号部分
         return ((timestamp - twepoch) << timestampLeftShift)
-                | (datacenterId << datacenterIdShift)
-                | (workerId << workerIdShift)
-                | sequence;
+            | (datacenterId << datacenterIdShift)
+            | (workerId << workerIdShift)
+            | sequence;
     }
 
     protected long tilNextMillis(long lastTimestamp) {
@@ -223,4 +232,10 @@ public class Sequence {
         return SystemClock.now();
     }
 
+    /**
+     * 反解id的时间戳部分
+     */
+    public static long parseIdTimestamp(long id) {
+        return (id>>22)+twepoch;
+    }
 }

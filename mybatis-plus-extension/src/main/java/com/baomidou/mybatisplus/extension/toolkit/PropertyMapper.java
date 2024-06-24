@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class PropertyMapper {
         return delegate.stringPropertyNames();
     }
 
-    public PropertyMapper whenNotBlack(String key, Consumer<String> consumer) {
+    public PropertyMapper whenNotBlank(String key, Consumer<String> consumer) {
         String value = delegate.getProperty(key);
         if (StringUtils.isNotBlank(value)) {
             consumer.accept(value);
@@ -53,7 +53,7 @@ public class PropertyMapper {
         return this;
     }
 
-    public <T> PropertyMapper whenNotBlack(String key, Function<String, T> function, Consumer<T> consumer) {
+    public <T> PropertyMapper whenNotBlank(String key, Function<String, T> function, Consumer<T> consumer) {
         String value = delegate.getProperty(key);
         if (StringUtils.isNotBlank(value)) {
             consumer.accept(function.apply(value));

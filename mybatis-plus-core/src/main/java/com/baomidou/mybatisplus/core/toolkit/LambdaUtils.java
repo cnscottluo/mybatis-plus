@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,13 @@
  */
 package com.baomidou.mybatisplus.core.toolkit;
 
-import com.baomidou.mybatisplus.core.exceptions.MybatisPlusException;
 import com.baomidou.mybatisplus.core.metadata.TableInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
-import com.baomidou.mybatisplus.core.toolkit.support.ColumnCache;
-import com.baomidou.mybatisplus.core.toolkit.support.LambdaMeta;
-import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
-import com.baomidou.mybatisplus.core.toolkit.support.SerializedLambdaMeta;
+import com.baomidou.mybatisplus.core.toolkit.support.*;
 
 import java.lang.invoke.SerializedLambda;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -52,19 +48,24 @@ public final class LambdaUtils {
      * @return 返回解析后的结果
      */
     public static <T> LambdaMeta extract(SFunction<T, ?> func) {
+        // 1. IDEA 调试模式下 lambda 表达式是一个代理
+        if (func instanceof Proxy) {
+            return new IdeaProxyLambdaMeta((Proxy) func);
+        }
+        // 2. 反射读取
         try {
             Method method = func.getClass().getDeclaredMethod("writeReplace");
-            return new SerializedLambdaMeta((SerializedLambda) ReflectionKit.setAccessible(method).invoke(func));
-        } catch (NoSuchMethodException e) {
-            String message = "Cannot find method writeReplace, please make sure that the lambda composite class is currently passed in";
-            throw new MybatisPlusException(message);
-        } catch (InvocationTargetException | IllegalAccessException e) {
-            throw new MybatisPlusException(e);
+            method.setAccessible(true);
+            return new ReflectLambdaMeta((SerializedLambda) method.invoke(func), func.getClass().getClassLoader());
+        } catch (Throwable e) {
+            // 3. 反射失败使用序列化的方式读取
+            return new ShadowLambdaMeta(com.baomidou.mybatisplus.core.toolkit.support.SerializedLambda.extract(func));
         }
     }
 
     /**
      * 格式化 key 将传入的 key 变更为大写格式
+     * 为了支持首字母是大写的字段
      *
      * <pre>
      *     Assert.assertEquals("USERID", formatKey("userId"))

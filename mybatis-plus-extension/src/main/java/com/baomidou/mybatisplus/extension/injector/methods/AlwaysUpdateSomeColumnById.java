@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@ import com.baomidou.mybatisplus.core.injector.AbstractMethod;
 import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfo;
 import com.baomidou.mybatisplus.core.toolkit.sql.SqlScriptUtils;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.apache.ibatis.mapping.MappedStatement;
@@ -44,9 +42,6 @@ import java.util.function.Predicate;
  * @author hubin
  * @since 2019-04-12
  */
-@NoArgsConstructor
-@AllArgsConstructor
-@SuppressWarnings("serial")
 public class AlwaysUpdateSomeColumnById extends AbstractMethod {
 
     /**
@@ -55,6 +50,28 @@ public class AlwaysUpdateSomeColumnById extends AbstractMethod {
     @Setter
     @Accessors(chain = true)
     private Predicate<TableFieldInfo> predicate;
+
+    /**
+     * @param name      方法名
+     * @param predicate 筛选条件
+     * @since 3.5.0
+     */
+    public AlwaysUpdateSomeColumnById(String name, Predicate<TableFieldInfo> predicate) {
+        super(name);
+        this.predicate = predicate;
+    }
+
+    public AlwaysUpdateSomeColumnById() {
+        super("alwaysUpdateSomeColumnById");
+    }
+
+    /**
+     * @param predicate 筛选条件
+     */
+    public AlwaysUpdateSomeColumnById(Predicate<TableFieldInfo> predicate) {
+        super("alwaysUpdateSomeColumnById");
+        this.predicate = predicate;
+    }
 
     @Override
     public MappedStatement injectMappedStatement(Class<?> mapperClass, Class<?> modelClass, TableInfo tableInfo) {
@@ -65,8 +82,8 @@ public class AlwaysUpdateSomeColumnById extends AbstractMethod {
         sqlSet = SqlScriptUtils.convertSet(sqlSet);
         String sql = String.format(sqlMethod.getSql(), tableInfo.getTableName(), sqlSet,
             tableInfo.getKeyColumn(), ENTITY_DOT + tableInfo.getKeyProperty(), additional);
-        SqlSource sqlSource = languageDriver.createSqlSource(configuration, sql, modelClass);
-        return addUpdateMappedStatement(mapperClass, modelClass, getMethod(sqlMethod), sqlSource);
+        SqlSource sqlSource = super.createSqlSource(configuration, sql, modelClass);
+        return addUpdateMappedStatement(mapperClass, modelClass, methodName, sqlSource);
     }
 
     private Predicate<TableFieldInfo> getPredicate() {
@@ -77,9 +94,4 @@ public class AlwaysUpdateSomeColumnById extends AbstractMethod {
         return noLogic;
     }
 
-    @Override
-    public String getMethod(SqlMethod sqlMethod) {
-        // 自定义 mapper 方法名
-        return "alwaysUpdateSomeColumnById";
-    }
 }

@@ -1,18 +1,3 @@
-/*
- * Copyright (c) 2011-2019, hubin (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
- */
 package com.baomidou.mybatisplus.test.h2;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -56,13 +41,13 @@ class ActiveRecordTest {
     @Transactional
     @Order(1)
     void testInsert() {
-        H2Student student = new H2Student(null, "测试学生", 2);
+        H2Student student = new H2Student(3L, "测试学生", 2);
         assertThat(student.insert()).isTrue();
         System.out.println(student.getId());
-//        assertThat(student.getId()).isEqualTo(1);
+        assertThat(student.getId()).isEqualTo(3);
+        student.setId(null);
         assertThat(student.insert()).isTrue();
         System.out.println(student.getId());
-//        assertThat(student.getId()).isEqualTo(2);
     }
 
     @Test
@@ -108,7 +93,7 @@ class ActiveRecordTest {
     @Order(6)
     void testSelectCount() {
         H2Student student = new H2Student();
-        int count = new H2Student().selectCount(new QueryWrapper<>(student));
+        long count = new H2Student().selectCount(new QueryWrapper<>(student));
         LOGGER.info("count:{}", count);
         Assertions.assertTrue(count > 1);
     }
@@ -176,7 +161,7 @@ class ActiveRecordTest {
         );
         Assertions.assertNotNull(h2Student);
         LambdaQueryWrapper<H2Student> queryWrapper = new QueryWrapper<H2Student>().lambda().ge(H2Student::getAge, 1);
-        int userCount = student.selectCount(queryWrapper.comment("getStuCount"));
+        long userCount = student.selectCount(queryWrapper.comment("getStuCount"));
         Assertions.assertEquals(1, userCount);
         List<H2Student> h2StudentList = student.selectList(queryWrapper.comment("getStuList"));
         Assertions.assertEquals(1, h2StudentList.size());

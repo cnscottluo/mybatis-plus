@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,11 +46,22 @@ public interface IPage<T> extends Serializable {
     }
 
     /**
+     * {@link com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor#isOptimizeJoin()}
+     * 两个参数都为 true 才会进行sql处理
+     *
+     * @return true 是 / false 否
+     * @since 3.4.4 @2021-09-13
+     */
+    default boolean optimizeJoinOfCountSql() {
+        return true;
+    }
+
+    /**
      * 进行 count 查询 【 默认: true 】
      *
      * @return true 是 / false 否
      */
-    default boolean isSearchCount() {
+    default boolean searchCount() {
         return true;
     }
 
@@ -91,7 +102,9 @@ public interface IPage<T> extends Serializable {
     /**
      * 内部什么也不干
      * <p>只是为了 json 反序列化时不报错</p>
+     * @deprecated 3.5.8
      */
+    @Deprecated
     default IPage<T> setPages(long pages) {
         // to do nothing
         return this;

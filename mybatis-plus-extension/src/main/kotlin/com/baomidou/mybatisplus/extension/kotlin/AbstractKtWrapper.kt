@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,8 @@ import com.baomidou.mybatisplus.core.conditions.AbstractWrapper
 import com.baomidou.mybatisplus.core.toolkit.LambdaUtils
 import com.baomidou.mybatisplus.core.toolkit.StringPool
 import com.baomidou.mybatisplus.core.toolkit.support.ColumnCache
-import kotlin.reflect.KProperty
+import java.util.stream.Collectors.joining
+import kotlin.reflect.KProperty1
 
 /**
  * Lambda 语法使用 Wrapper
@@ -29,7 +30,8 @@ import kotlin.reflect.KProperty
  * @author yangyuhan,MieMie,HanChunLin
  * @since 2018-11-07
  */
-abstract class AbstractKtWrapper<T, Children : AbstractKtWrapper<T, Children>> : AbstractWrapper<T, KProperty<*>, Children>() {
+@Suppress("serial")
+abstract class AbstractKtWrapper<T, Children : AbstractKtWrapper<T, Children>> : AbstractWrapper<T, KProperty1<in T, *>, Children>() {
 
     /**
      * 列 Map
@@ -39,12 +41,12 @@ abstract class AbstractKtWrapper<T, Children : AbstractKtWrapper<T, Children>> :
     /**
      * 重载方法，默认 onlyColumn = true
      */
-    override fun columnToString(kProperty: KProperty<*>): String? = columnToString(kProperty, true)
+    override fun columnToString(kProperty: KProperty1<in T, *>): String? = columnToString(kProperty, true)
 
     /**
      * 核心实现方法，供重载使用
      */
-    private fun columnToString(kProperty: KProperty<*>, onlyColumn: Boolean): String? {
+    private fun columnToString(kProperty: KProperty1<in T, *>, onlyColumn: Boolean): String? {
         return columnMap[LambdaUtils.formatKey(kProperty.name)]?.let { if (onlyColumn) it.column else it.columnSelect }
     }
 
@@ -53,8 +55,16 @@ abstract class AbstractKtWrapper<T, Children : AbstractKtWrapper<T, Children>> :
      *
      * "user_id" AS "userId" , "user_name" AS "userName"
      */
-    fun columnsToString(onlyColumn: Boolean, vararg columns: KProperty<*>): String =
+    fun columnsToString(onlyColumn: Boolean, vararg columns: KProperty1<in T, *>): String =
         columns.mapNotNull { columnToString(it, onlyColumn) }.joinToString(separator = StringPool.COMMA)
+
+    /**
+     * 批量处理传入的属性，正常情况下的输出就像：
+     *
+     * "user_id" AS "userId" , "user_name" AS "userName"
+     */
+    fun columnsToString(onlyColumn: Boolean, columns: MutableList<KProperty1<in T, *>>): String =
+        columns.stream().map { columnToString(it, onlyColumn) }.collect(joining(StringPool.COMMA))
 
     override fun initNeed() {
         super.initNeed()

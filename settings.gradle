@@ -1,16 +1,15 @@
 buildscript {
     repositories {
-        maven { url "https://maven.aliyun.com/nexus/content/groups/public" }
-        maven { url "https://maven.aliyun.com/nexus/content/repositories/gradle-plugin" }
+        maven { url "https://maven.aliyun.com/repository/public" }
+        maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
     }
 
     dependencies {
         //noinspection DifferentKotlinGradleVersion
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.3.72"
-        classpath "gradle.plugin.com.hierynomus.gradle.plugins:license-gradle-plugin:0.15.0"
-        classpath "io.freefair.gradle:lombok-plugin:5.3.0"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0"
+        classpath "io.freefair.gradle:lombok-plugin:8.6"
     }
 }
 
@@ -19,5 +18,13 @@ include 'mybatis-plus'
 include 'mybatis-plus-core'
 include 'mybatis-plus-annotation'
 include 'mybatis-plus-extension'
-include 'mybatis-plus-boot-starter'
-include 'mybatis-plus-boot-starter-test'
+include 'mybatis-plus-generator'
+include 'mybatis-plus-bom'
+include 'spring-boot-starter'
+include ':spring-boot-starter:mybatis-plus-boot-starter'
+include ':spring-boot-starter:mybatis-plus-boot-starter-test'
+include ':spring-boot-starter:mybatis-plus-spring-boot-autoconfigure'
+include ':spring-boot-starter:mybatis-plus-spring-boot-test-autoconfigure'
+include ':spring-boot-starter:mybatis-plus-spring-boot3-starter'
+include ':spring-boot-starter:mybatis-plus-spring-boot3-starter-test'
+

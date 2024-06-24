@@ -1,31 +1,19 @@
-/*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
- */
 package com.baomidou.mybatisplus.test.h2.entity;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Date;
+
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.Version;
 import com.baomidou.mybatisplus.test.h2.enums.AgeEnum;
+
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
-
-import java.math.BigDecimal;
-import java.util.Date;
 
 /**
  * 测试用户类
@@ -53,7 +41,7 @@ public class H2User extends SuperEntity {
     private BigDecimal price;
 
     /* 测试下划线字段命名类型, 字段填充 */
-    @TableField
+    @TableField(fill = FieldFill.INSERT)
     private Integer testType;
 
     /**
@@ -73,6 +61,9 @@ public class H2User extends SuperEntity {
 
     @TableLogic
     private Integer deleted;
+
+    @TableField("created_dt")
+    private LocalDateTime createdDt;
 
 
     public H2User() {
@@ -129,5 +120,11 @@ public class H2User extends SuperEntity {
             "desc=" + desc + "," +
             "testDate=" + testDate + "," +
             "version=" + version;
+    }
+
+    public static H2User ofId(Long id) {
+        H2User h2User = new H2User();
+        h2User.setTestId(id);
+        return h2User;
     }
 }

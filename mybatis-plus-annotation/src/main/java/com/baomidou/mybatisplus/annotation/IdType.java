@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ public enum IdType {
      */
     INPUT(2),
 
-    /* 以下3种类型、只有当插入对象ID 为空，才自动填充。 */
+    /* 以下2种类型、只有当插入对象ID 为空，才自动填充。 */
     /**
      * 分配ID (主键类型为number或string）,
      * 默认实现类 {@link com.baomidou.mybatisplus.core.incrementer.DefaultIdentifierGenerator}(雪花算法)

@@ -1,18 +1,3 @@
-/*
- * Copyright (c) 2011-2019, hubin (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
- */
 package com.baomidou.mybatisplus.test.toolkit;
 
 import com.baomidou.mybatisplus.core.toolkit.ReflectionKit;
@@ -144,28 +129,5 @@ class ReflectionKitTest {
         entity.setParentId("123");
         Assertions.assertEquals(entity.getParentId(), ReflectionKit.getFieldValue(entity, "parentId"));
         Assertions.assertEquals(entity.getpId(), ReflectionKit.getFieldValue(entity, "pId"));
-    }
-
-    @Test
-    void testIsPrimitiveOrWrapper() {
-        Assertions.assertFalse(ReflectionKit.isPrimitiveOrWrapper(String.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(Boolean.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(boolean.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(byte.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(Byte.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(char.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(Character.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(char.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(Character.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(double.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(Double.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(float.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(Float.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(int.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(Integer.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(long.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(Long.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(short.class));
-        Assertions.assertTrue(ReflectionKit.isPrimitiveOrWrapper(Short.class));
     }
 }

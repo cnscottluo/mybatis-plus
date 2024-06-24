@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,20 @@
  */
 package com.baomidou.mybatisplus.core.toolkit;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * SQL 表名解析
  * <p>
- * https://github.com/mnadeem/sql-table-name-parser
+ * <a href="https://github.com/mnadeem/sql-table-name-parser">...</a>
  * <p>
  * Ultra light, Ultra fast parser to extract table name out SQLs, supports oracle dialect SQLs as well.
  * USE: new TableNameParser(sql).tables()
@@ -31,15 +37,15 @@ import java.util.regex.Pattern;
  * @since 2019-04-22
  */
 public final class TableNameParser {
-    private static final String TOKEN_GROUP_START = "(";
-    private static final String TOKEN_COMMA = ",";
+
     private static final String TOKEN_SET = "set";
     private static final String TOKEN_OF = "of";
     private static final String TOKEN_DUAL = "dual";
+    private static final String IGNORE = "ignore";
     private static final String TOKEN_DELETE = "delete";
+    private static final String TOKEN_UPDATE = "update";
     private static final String TOKEN_CREATE = "create";
     private static final String TOKEN_INDEX = "index";
-    private static final String TOKEN_ALL = "*";
 
     private static final String KEYWORD_JOIN = "join";
     private static final String KEYWORD_INTO = "into";
@@ -47,10 +53,11 @@ public final class TableNameParser {
     private static final String KEYWORD_FROM = "from";
     private static final String KEYWORD_USING = "using";
     private static final String KEYWORD_UPDATE = "update";
+    private static final String KEYWORD_STRAIGHT_JOIN = "straight_join";
     private static final String KEYWORD_DUPLICATE = "duplicate";
 
-    private static final List<String> concerned = Arrays.asList(KEYWORD_TABLE, KEYWORD_INTO, KEYWORD_JOIN, KEYWORD_USING, KEYWORD_UPDATE);
-    private static final List<String> ignored = Arrays.asList(TOKEN_GROUP_START, TOKEN_SET, TOKEN_OF, TOKEN_DUAL);
+    private static final List<String> concerned = Arrays.asList(KEYWORD_TABLE, KEYWORD_INTO, KEYWORD_JOIN, KEYWORD_USING, KEYWORD_UPDATE, KEYWORD_STRAIGHT_JOIN);
+    private static final List<String> ignored = Arrays.asList(StringPool.LEFT_BRACKET, TOKEN_SET, TOKEN_OF, TOKEN_DUAL);
 
     /**
      * 该表达式会匹配 SQL 中不是 SQL TOKEN 的部分，比如换行符，注释信息，结尾的 {@code ;} 等。
@@ -63,7 +70,7 @@ public final class TableNameParser {
      * 5、把 ,() 也要分出来
      */
     private static final Pattern NON_SQL_TOKEN_PATTERN = Pattern.compile("(--[^\\v]+)|;|(\\s+)|((?s)/[*].*?[*]/)"
-            + "|(((\\b|\\B)(?=[,()]))|((?<=[,()])(\\b|\\B)))"
+        + "|(((\\b|\\B)(?=[,()]))|((?<=[,()])(\\b|\\B)))"
     );
 
     private final List<SqlToken> tokens;
@@ -102,6 +109,10 @@ public final class TableNameParser {
                 } else if (concerned.contains(current.toLowerCase())) {
                     if (hasMoreTokens(tokens, index)) {
                         SqlToken next = tokens.get(index++);
+                        if (TOKEN_UPDATE.equalsIgnoreCase(current)
+                            && IGNORE.equalsIgnoreCase(next.getValue())) {
+                            next = tokens.get(index++);
+                        }
                         visitNameToken(next, visitor);
                     }
                 }
@@ -125,7 +136,7 @@ public final class TableNameParser {
      * @param sql SQL
      * @return 语句
      */
-    protected List<SqlToken> fetchAllTokens(String sql) {
+    private List<SqlToken> fetchAllTokens(String sql) {
         List<SqlToken> tokens = new ArrayList<>();
         Matcher matcher = NON_SQL_TOKEN_PATTERN.matcher(sql);
         int last = 0;
@@ -151,10 +162,10 @@ public final class TableNameParser {
      * @return 判断是不是 Oracle 特殊的删除手法
      */
     private static boolean isOracleSpecialDelete(String current, List<SqlToken> tokens, int index) {
-        if (TOKEN_DELETE.equals(current)) {
+        if (TOKEN_DELETE.equalsIgnoreCase(current)) {
             if (hasMoreTokens(tokens, index++)) {
                 String next = tokens.get(index).getValue();
-                return !KEYWORD_FROM.equals(next) && !TOKEN_ALL.equals(next);
+                return !KEYWORD_FROM.equalsIgnoreCase(next) && !StringPool.ASTERISK.equals(next);
             }
         }
         return false;
@@ -162,9 +173,9 @@ public final class TableNameParser {
 
     private boolean isCreateIndex(String current, List<SqlToken> tokens, int index) {
         index++; // Point to next token
-        if (TOKEN_CREATE.equals(current.toLowerCase()) && hasIthToken(tokens, index)) {
+        if (TOKEN_CREATE.equalsIgnoreCase(current) && hasIthToken(tokens, index)) {
             String next = tokens.get(index).getValue();
-            return TOKEN_INDEX.equals(next.toLowerCase());
+            return TOKEN_INDEX.equalsIgnoreCase(next);
         }
         return false;
     }
@@ -175,10 +186,10 @@ public final class TableNameParser {
      * @return 判断是否是mysql的特殊语法 on duplicate key update
      */
     private boolean isOnDuplicateKeyUpdate(String current, int index) {
-        if (KEYWORD_DUPLICATE.equals(current.toLowerCase())) {
+        if (KEYWORD_DUPLICATE.equalsIgnoreCase(current)) {
             if (hasMoreTokens(tokens, index++)) {
                 String next = tokens.get(index).getValue();
-                return KEYWORD_UPDATE.equals(next.toLowerCase());
+                return KEYWORD_UPDATE.equalsIgnoreCase(next);
             }
         }
         return false;
@@ -189,7 +200,7 @@ public final class TableNameParser {
     }
 
     private static boolean isFromToken(String currentToken) {
-        return KEYWORD_FROM.equals(currentToken.toLowerCase());
+        return KEYWORD_FROM.equalsIgnoreCase(currentToken);
     }
 
     private int skipDuplicateKeyUpdateIndex(int index) {
@@ -214,7 +225,7 @@ public final class TableNameParser {
     }
 
     private static void processNonAliasedMultiTables(List<SqlToken> tokens, int index, String nextToken, TableNameVisitor visitor) {
-        while (nextToken.equals(TOKEN_COMMA)) {
+        while (nextToken.equals(StringPool.COMMA)) {
             visitNameToken(tokens.get(index++), visitor);
             if (hasMoreTokens(tokens, index)) {
                 nextToken = tokens.get(index++).getValue();
@@ -231,7 +242,7 @@ public final class TableNameParser {
         }
 
         if (shouldProcessMultipleTables(nextNextToken)) {
-            while (hasMoreTokens(tokens, index) && nextNextToken.equals(TOKEN_COMMA)) {
+            while (hasMoreTokens(tokens, index) && nextNextToken.equals(StringPool.COMMA)) {
                 if (hasMoreTokens(tokens, index)) {
                     current = tokens.get(index++);
                 }
@@ -247,7 +258,7 @@ public final class TableNameParser {
     }
 
     private static boolean shouldProcessMultipleTables(final String nextToken) {
-        return nextToken != null && nextToken.equals(TOKEN_COMMA);
+        return nextToken != null && nextToken.equals(StringPool.COMMA);
     }
 
     private static boolean hasMoreTokens(List<SqlToken> tokens, int index) {

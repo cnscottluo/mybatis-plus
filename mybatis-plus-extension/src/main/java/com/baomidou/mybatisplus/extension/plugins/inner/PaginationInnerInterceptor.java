@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.metadata.OrderItem;
 import com.baomidou.mybatisplus.core.toolkit.*;
+import com.baomidou.mybatisplus.extension.parser.JsqlParserGlobal;
 import com.baomidou.mybatisplus.extension.plugins.pagination.DialectFactory;
 import com.baomidou.mybatisplus.extension.plugins.pagination.DialectModel;
 import com.baomidou.mybatisplus.extension.plugins.pagination.dialects.IDialect;
@@ -30,8 +31,6 @@ import lombok.NoArgsConstructor;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Alias;
 import net.sf.jsqlparser.expression.Expression;
-import net.sf.jsqlparser.expression.Function;
-import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.select.*;
@@ -64,20 +63,15 @@ import java.util.stream.Collectors;
 @NoArgsConstructor
 @SuppressWarnings({"rawtypes"})
 public class PaginationInnerInterceptor implements InnerInterceptor {
-
-    protected static final List<SelectItem> COUNT_SELECT_ITEM = Collections.singletonList(defaultCountSelectItem());
-    protected static final Map<String, MappedStatement> countMsCache = new ConcurrentHashMap<>();
-    protected final Log logger = LogFactory.getLog(this.getClass());
-
     /**
      * 获取jsqlparser中count的SelectItem
      */
-    private static SelectItem defaultCountSelectItem() {
-        Function function = new Function();
-        function.setName("COUNT");
-        function.setAllColumns(true);
-        return new SelectExpressionItem(function);
-    }
+    protected static final List<SelectItem<?>> COUNT_SELECT_ITEM = Collections.singletonList(
+        new SelectItem<>(new Column().withColumnName("COUNT(*)")).withAlias(new Alias("total"))
+    );
+    protected static final Map<String, MappedStatement> countMsCache = new ConcurrentHashMap<>();
+    protected final Log logger = LogFactory.getLog(this.getClass());
+
 
     /**
      * 溢出总页数后是否进行处理
@@ -121,7 +115,7 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
     @Override
     public boolean willDoQuery(Executor executor, MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, BoundSql boundSql) throws SQLException {
         IPage<?> page = ParameterUtils.findPage(parameter).orElse(null);
-        if (page == null || page.getSize() < 0 || !page.isSearchCount()) {
+        if (page == null || page.getSize() < 0 || !page.searchCount() || resultHandler != Executor.NO_RESULT_HANDLER) {
             return true;
         }
 
@@ -131,7 +125,7 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
             countSql = countMs.getBoundSql(parameter);
         } else {
             countMs = buildAutoCountMappedStatement(ms);
-            String countSqlStr = autoCountSql(page.optimizeCountSql(), boundSql.getSql());
+            String countSqlStr = autoCountSql(page, boundSql.getSql());
             PluginUtils.MPBoundSql mpBoundSql = PluginUtils.mpBoundSql(boundSql);
             countSql = new BoundSql(countMs.getConfiguration(), countSqlStr, mpBoundSql.parameterMappings(), parameter);
             PluginUtils.setAdditionalParameter(countSql, mpBoundSql.additionalParameters());
@@ -152,7 +146,7 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
     }
 
     @Override
-    public void beforeQuery(Executor executor, MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, BoundSql boundSql) throws SQLException {
+    public void beforeQuery(Executor executor, MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, BoundSql boundSql) {
         IPage<?> page = ParameterUtils.findPage(parameter).orElse(null);
         if (null == page) {
             return;
@@ -162,20 +156,21 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
         boolean addOrdered = false;
         String buildSql = boundSql.getSql();
         List<OrderItem> orders = page.orders();
-        if (!CollectionUtils.isEmpty(orders)) {
+        if (CollectionUtils.isNotEmpty(orders)) {
             addOrdered = true;
             buildSql = this.concatOrderBy(buildSql, orders);
         }
 
-        // size 小于 0 不构造分页sql
-        if (page.getSize() < 0) {
+        // size 小于 0 且不限制返回值则不构造分页sql
+        Long _limit = page.maxLimit() != null ? page.maxLimit() : maxLimit;
+        if (page.getSize() < 0 && null == _limit) {
             if (addOrdered) {
                 PluginUtils.mpBoundSql(boundSql).sql(buildSql);
             }
             return;
         }
 
-        handlerLimit(page);
+        handlerLimit(page, _limit);
         IDialect dialect = findIDialect(executor);
 
         final Configuration configuration = ms.getConfiguration();
@@ -257,40 +252,43 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
     /**
      * 获取自动优化的 countSql
      *
-     * @param optimizeCountSql 是否进行优化
-     * @param sql              sql
+     * @param page 参数
+     * @param sql  sql
      * @return countSql
      */
-    protected String autoCountSql(boolean optimizeCountSql, String sql) {
-        if (!optimizeCountSql) {
+    public String autoCountSql(IPage<?> page, String sql) {
+        if (!page.optimizeCountSql()) {
             return lowLevelCountSql(sql);
         }
         try {
-            Select select = (Select) CCJSqlParserUtil.parse(sql);
-            PlainSelect plainSelect = (PlainSelect) select.getSelectBody();
-            Distinct distinct = plainSelect.getDistinct();
-            GroupByElement groupBy = plainSelect.getGroupBy();
-            List<OrderByElement> orderBy = plainSelect.getOrderByElements();
+            Select select = (Select) JsqlParserGlobal.parse(sql);
+            // https://github.com/baomidou/mybatis-plus/issues/3920  分页增加union语法支持
+            if (select instanceof SetOperationList) {
+                return lowLevelCountSql(sql);
+            }
+            PlainSelect plainSelect = (PlainSelect) select;
 
+            // 优化 order by 在非分组情况下
+            List<OrderByElement> orderBy = plainSelect.getOrderByElements();
             if (CollectionUtils.isNotEmpty(orderBy)) {
                 boolean canClean = true;
-                if (groupBy != null) {
-                    // 包含groupBy 不去除orderBy
-                    canClean = false;
-                }
-                if (canClean) {
-                    for (OrderByElement order : orderBy) {
-                        // order by 里带参数,不去除order by
-                        Expression expression = order.getExpression();
-                        if (!(expression instanceof Column) && expression.toString().contains(StringPool.QUESTION_MARK)) {
-                            canClean = false;
-                            break;
-                        }
+                for (OrderByElement order : orderBy) {
+                    // order by 里带参数,不去除order by
+                    Expression expression = order.getExpression();
+                    if (!(expression instanceof Column) && expression.toString().contains(StringPool.QUESTION_MARK)) {
+                        canClean = false;
+                        break;
                     }
                 }
                 if (canClean) {
                     plainSelect.setOrderByElements(null);
                 }
+            }
+            Distinct distinct = plainSelect.getDistinct();
+            GroupByElement groupBy = plainSelect.getGroupBy();
+            // 包含 distinct、groupBy 不优化
+            if (null != distinct || null != groupBy) {
+                return lowLevelCountSql(select.toString());
             }
             //#95 Github, selectItems contains #{} ${}, which will be translated to ?, and it may be in a function: power(#{myInt},2)
             for (SelectItem item : plainSelect.getSelectItems()) {
@@ -298,12 +296,9 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
                     return lowLevelCountSql(select.toString());
                 }
             }
-            // 包含 distinct、groupBy不优化
-            if (distinct != null || null != groupBy) {
-                return lowLevelCountSql(select.toString());
-            }
+
             // 包含 join 连表,进行判断是否移除 join 连表
-            if (optimizeJoin) {
+            if (optimizeJoin && page.optimizeJoinOfCountSql()) {
                 List<Join> joins = plainSelect.getJoins();
                 if (CollectionUtils.isNotEmpty(joins)) {
                     boolean canRemoveJoin = true;
@@ -320,8 +315,8 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
                         if (rightItem instanceof Table) {
                             Table table = (Table) rightItem;
                             str = Optional.ofNullable(table.getAlias()).map(Alias::getName).orElse(table.getName()) + StringPool.DOT;
-                        } else if (rightItem instanceof SubSelect) {
-                            SubSelect subSelect = (SubSelect) rightItem;
+                        } else if (rightItem instanceof ParenthesedSelect) {
+                            ParenthesedSelect subSelect = (ParenthesedSelect) rightItem;
                             /* 如果 left join 是子查询，并且子查询里包含 ?(代表有入参) 或者 where 条件里包含使用 join 的表的字段作条件,就不移除 join */
                             if (subSelect.toString().contains(StringPool.QUESTION_MARK)) {
                                 canRemoveJoin = false;
@@ -331,18 +326,28 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
                         }
                         // 不区分大小写
                         str = str.toLowerCase();
-                        String onExpressionS = join.getOnExpression().toString();
-                        /* 如果 join 里包含 ?(代表有入参) 或者 where 条件里包含使用 join 的表的字段作条件,就不移除 join */
-                        if (onExpressionS.contains(StringPool.QUESTION_MARK) || whereS.contains(str)) {
+
+                        if (whereS.contains(str)) {
+                            /* 如果 where 条件里包含使用 join 的表的字段作条件,就不移除 join */
                             canRemoveJoin = false;
                             break;
                         }
+
+                        for (Expression expression : join.getOnExpressions()) {
+                            if (expression.toString().contains(StringPool.QUESTION_MARK)) {
+                                /* 如果 join 里包含 ?(代表有入参) 就不移除 join */
+                                canRemoveJoin = false;
+                                break;
+                            }
+                        }
                     }
+
                     if (canRemoveJoin) {
                         plainSelect.setJoins(null);
                     }
                 }
             }
+
             // 优化 SQL
             plainSelect.setSelectItems(COUNT_SELECT_ITEM);
             return select.toString();
@@ -373,20 +378,19 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
      */
     public String concatOrderBy(String originalSql, List<OrderItem> orderList) {
         try {
-            Select select = (Select) CCJSqlParserUtil.parse(originalSql);
-            SelectBody selectBody = select.getSelectBody();
+            Select selectBody = (Select) JsqlParserGlobal.parse(originalSql);
             if (selectBody instanceof PlainSelect) {
                 PlainSelect plainSelect = (PlainSelect) selectBody;
                 List<OrderByElement> orderByElements = plainSelect.getOrderByElements();
                 List<OrderByElement> orderByElementsReturn = addOrderByElements(orderList, orderByElements);
                 plainSelect.setOrderByElements(orderByElementsReturn);
-                return select.toString();
+                return plainSelect.toString();
             } else if (selectBody instanceof SetOperationList) {
                 SetOperationList setOperationList = (SetOperationList) selectBody;
                 List<OrderByElement> orderByElements = setOperationList.getOrderByElements();
                 List<OrderByElement> orderByElementsReturn = addOrderByElements(orderList, orderByElements);
                 setOperationList.setOrderByElements(orderByElementsReturn);
-                return select.toString();
+                return setOperationList.toString();
             } else if (selectBody instanceof WithItem) {
                 // todo: don't known how to resole
                 return originalSql;
@@ -414,8 +418,9 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
         if (CollectionUtils.isEmpty(orderByElements)) {
             return additionalOrderBy;
         }
-        orderByElements.addAll(additionalOrderBy);
-        return orderByElements;
+        // github pull/3550 优化排序，比如：默认 order by id 前端传了name排序，设置为 order by name,id
+        additionalOrderBy.addAll(orderByElements);
+        return additionalOrderBy;
     }
 
     /**
@@ -445,11 +450,9 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
      *
      * @param page IPage
      */
-    protected void handlerLimit(IPage<?> page) {
+    protected void handlerLimit(IPage<?> page, Long limit) {
         final long size = page.getSize();
-        Long pageMaxLimit = page.maxLimit();
-        Long limit = pageMaxLimit != null ? pageMaxLimit : maxLimit;
-        if (limit != null && limit > 0 && size > limit) {
+        if (limit != null && limit > 0 && (size > limit || size < 0)) {
             page.setSize(limit);
         }
     }
@@ -466,10 +469,10 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
     @Override
     public void setProperties(Properties properties) {
         PropertyMapper.newInstance(properties)
-            .whenNotBlack("overflow", Boolean::parseBoolean, this::setOverflow)
-            .whenNotBlack("dbType", DbType::getDbType, this::setDbType)
-            .whenNotBlack("dialect", ClassUtils::newInstance, this::setDialect)
-            .whenNotBlack("maxLimit", Long::parseLong, this::setMaxLimit)
-            .whenNotBlack("optimizeJoin", Boolean::parseBoolean, this::setOptimizeJoin);
+            .whenNotBlank("overflow", Boolean::parseBoolean, this::setOverflow)
+            .whenNotBlank("dbType", DbType::getDbType, this::setDbType)
+            .whenNotBlank("dialect", ClassUtils::newInstance, this::setDialect)
+            .whenNotBlank("maxLimit", Long::parseLong, this::setMaxLimit)
+            .whenNotBlank("optimizeJoin", Boolean::parseBoolean, this::setOptimizeJoin);
     }
 }

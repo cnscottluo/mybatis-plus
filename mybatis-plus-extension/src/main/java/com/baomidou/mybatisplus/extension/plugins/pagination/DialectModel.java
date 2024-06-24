@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ import java.util.function.Function;
 
 /**
  * 分页参数动态化所需 model
+ * <p>
+ * 动态入参的模式暂只支持在sql末端如: select * from x limit ?,?
  *
  * @author miemie
  * @since 2018-10-31

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,13 +97,9 @@ public interface Constants extends StringPool, Serializable {
      */
     String WRAPPER_ENTITY_DOT = WRAPPER_DOT + "entity" + DOT;
     /**
-     * wrapper 类的属性 expression
-     */
-    String WRAPPER_EXPRESSION = WRAPPER_DOT + "expression";
-    /**
      * wrapper 类的属性 expression 下级属性 order
      */
-    String WRAPPER_EXPRESSION_ORDER = WRAPPER_EXPRESSION + DOT + "orderBy";
+    String WRAPPER_EXPRESSION_ORDER = WRAPPER_DOT + "useAnnotationOrderBy";
     /**
      * UpdateWrapper 类的属性 sqlSet
      */
@@ -123,6 +119,7 @@ public interface Constants extends StringPool, Serializable {
     /**
      * columnMap
      */
+    @Deprecated
     String COLUMN_MAP = "cm";
     /**
      * columnMap.isEmpty
@@ -130,13 +127,48 @@ public interface Constants extends StringPool, Serializable {
     String COLUMN_MAP_IS_EMPTY = COLUMN_MAP + DOT + "isEmpty";
     /**
      * collection
+     *
+     * @see #COLL
+     * @deprecated 3.5.2 后面修改成collection
      */
+    @Deprecated
     String COLLECTION = "coll";
+
+    /**
+     * @since 3.5.2
+     */
+    String COLL = "coll";
+    /**
+     * list
+     *
+     * @since 3.5.0
+     */
+    String LIST = "list";
     /**
      * where
      */
     String WHERE = "WHERE";
+    /**
+     * limit
+     */
+    String LIMIT = "LIMIT";
 
+    /**
+     * @since 3.5.2
+     */
+    String ARRAY = "array";
+    /**
+     * order by
+     */
+    String ORDER_BY = "ORDER BY";
+    /**
+     * asc
+     */
+    String ASC = "ASC";
+    /**
+     * desc
+     */
+    String DESC = "DESC";
     /**
      * 乐观锁字段
      */
@@ -147,4 +179,10 @@ public interface Constants extends StringPool, Serializable {
      */
     String WRAPPER_PARAM = "MPGENVAL";
     String WRAPPER_PARAM_MIDDLE = ".paramNameValuePairs" + DOT;
+
+
+    /**
+     * 默认批次提交数量
+     */
+    int DEFAULT_BATCH_SIZE = 1000;
 }

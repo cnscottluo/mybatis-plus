@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,20 @@ import java.util.Map;
  * @author hubin
  * @since 2018-04-06
  */
+@Deprecated
 public class DeleteByMap extends AbstractMethod {
+
+    public DeleteByMap() {
+        this(SqlMethod.DELETE_BY_MAP.getMethod());
+    }
+
+    /**
+     * @param name 方法名
+     * @since 3.5.0
+     */
+    public DeleteByMap(String name) {
+        super(name);
+    }
 
     @Override
     public MappedStatement injectMappedStatement(Class<?> mapperClass, Class<?> modelClass, TableInfo tableInfo) {
@@ -37,13 +50,13 @@ public class DeleteByMap extends AbstractMethod {
         SqlMethod sqlMethod = SqlMethod.LOGIC_DELETE_BY_MAP;
         if (tableInfo.isWithLogicDelete()) {
             sql = String.format(sqlMethod.getSql(), tableInfo.getTableName(), sqlLogicSet(tableInfo), sqlWhereByMap(tableInfo));
-            SqlSource sqlSource = languageDriver.createSqlSource(configuration, sql, Map.class);
-            return addUpdateMappedStatement(mapperClass, Map.class, getMethod(sqlMethod), sqlSource);
+            SqlSource sqlSource = super.createSqlSource(configuration, sql, Map.class);
+            return addUpdateMappedStatement(mapperClass, Map.class, methodName, sqlSource);
         } else {
             sqlMethod = SqlMethod.DELETE_BY_MAP;
             sql = String.format(sqlMethod.getSql(), tableInfo.getTableName(), this.sqlWhereByMap(tableInfo));
-            SqlSource sqlSource = languageDriver.createSqlSource(configuration, sql, Map.class);
-            return this.addDeleteMappedStatement(mapperClass, getMethod(sqlMethod), sqlSource);
+            SqlSource sqlSource = super.createSqlSource(configuration, sql, Map.class);
+            return this.addDeleteMappedStatement(mapperClass, methodName, sqlSource);
         }
     }
 }

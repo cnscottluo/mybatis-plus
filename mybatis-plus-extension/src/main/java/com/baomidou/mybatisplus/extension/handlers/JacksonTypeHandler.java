@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,16 @@
 package com.baomidou.mybatisplus.extension.handlers;
 
 import com.baomidou.mybatisplus.core.toolkit.Assert;
+import com.fasterxml.jackson.core.JacksonException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.MappedJdbcTypes;
 import org.apache.ibatis.type.MappedTypes;
 
-import java.io.IOException;
+import java.lang.reflect.Field;
 
 /**
  * Jackson 实现 JSON 字段类型处理器
@@ -31,35 +33,39 @@ import java.io.IOException;
  * @author hubin
  * @since 2019-08-25
  */
-@Slf4j
 @MappedTypes({Object.class})
 @MappedJdbcTypes(JdbcType.VARCHAR)
 public class JacksonTypeHandler extends AbstractJsonTypeHandler<Object> {
+
     private static ObjectMapper OBJECT_MAPPER;
-    private final Class<?> type;
 
     public JacksonTypeHandler(Class<?> type) {
-        if (log.isTraceEnabled()) {
-            log.trace("JacksonTypeHandler(" + type + ")");
-        }
-        Assert.notNull(type, "Type argument cannot be null");
-        this.type = type;
+        super(type);
+    }
+
+    public JacksonTypeHandler(Class<?> type, Field field) {
+        super(type, field);
     }
 
     @Override
-    protected Object parse(String json) {
+    public Object parse(String json) {
+        ObjectMapper objectMapper = getObjectMapper();
+        TypeFactory typeFactory = objectMapper.getTypeFactory();
+        JavaType javaType = typeFactory.constructType(getFieldType());
         try {
-            return getObjectMapper().readValue(json, type);
-        } catch (IOException e) {
+            return objectMapper.readValue(json, javaType);
+        } catch (JacksonException e) {
+            log.error("deserialize json: " + json + " to " + javaType + " error ", e);
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    protected String toJson(Object obj) {
+    public String toJson(Object obj) {
         try {
             return getObjectMapper().writeValueAsString(obj);
         } catch (JsonProcessingException e) {
+            log.error("serialize " + obj + " to json error ", e);
             throw new RuntimeException(e);
         }
     }
@@ -75,4 +81,5 @@ public class JacksonTypeHandler extends AbstractJsonTypeHandler<Object> {
         Assert.notNull(objectMapper, "ObjectMapper should not be null");
         JacksonTypeHandler.OBJECT_MAPPER = objectMapper;
     }
+
 }

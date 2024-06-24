@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.core.plugins.InterceptorIgnoreHelper;
 import com.baomidou.mybatisplus.core.toolkit.Assert;
 import com.baomidou.mybatisplus.core.toolkit.PluginUtils;
+import com.baomidou.mybatisplus.core.toolkit.StringPool;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.parser.JsqlParserSupport;
 import net.sf.jsqlparser.expression.BinaryExpression;
@@ -28,6 +29,7 @@ import net.sf.jsqlparser.expression.Parenthesis;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
 import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import net.sf.jsqlparser.statement.delete.Delete;
 import net.sf.jsqlparser.statement.update.Update;
@@ -52,7 +54,9 @@ public class BlockAttackInnerInterceptor extends JsqlParserSupport implements In
         MappedStatement ms = handler.mappedStatement();
         SqlCommandType sct = ms.getSqlCommandType();
         if (sct == SqlCommandType.UPDATE || sct == SqlCommandType.DELETE) {
-            if (InterceptorIgnoreHelper.willIgnoreBlockAttack(ms.getId())) return;
+            if (InterceptorIgnoreHelper.willIgnoreBlockAttack(ms.getId())) {
+                return;
+            }
             BoundSql boundSql = handler.boundSql();
             parserMulti(boundSql.getSql(), null);
         }
@@ -76,11 +80,20 @@ public class BlockAttackInnerInterceptor extends JsqlParserSupport implements In
         if (where == null) {
             return true;
         }
-        if (StringUtils.isNotBlank(logicField) && (where instanceof BinaryExpression)) {
+        if (StringUtils.isNotBlank(logicField)) {
 
-            BinaryExpression binaryExpression = (BinaryExpression) where;
-            if (StringUtils.equals(binaryExpression.getLeftExpression().toString(), logicField) || StringUtils.equals(binaryExpression.getRightExpression().toString(), logicField)) {
-                return true;
+            if (where instanceof BinaryExpression) {
+                BinaryExpression binaryExpression = (BinaryExpression) where;
+                if (StringUtils.equals(binaryExpression.getLeftExpression().toString(), logicField) || StringUtils.equals(binaryExpression.getRightExpression().toString(), logicField)) {
+                    return true;
+                }
+            }
+
+            if (where instanceof IsNullExpression) {
+                IsNullExpression binaryExpression = (IsNullExpression) where;
+                if (StringUtils.equals(binaryExpression.getLeftExpression().toString(), logicField)) {
+                    return true;
+                }
             }
         }
 
@@ -117,12 +130,12 @@ public class BlockAttackInnerInterceptor extends JsqlParserSupport implements In
      */
     private String getTableLogicField(String tableName) {
         if (StringUtils.isBlank(tableName)) {
-            return StringUtils.EMPTY;
+            return StringPool.EMPTY;
         }
 
         TableInfo tableInfo = TableInfoHelper.getTableInfo(tableName);
         if (tableInfo == null || !tableInfo.isWithLogicDelete() || tableInfo.getLogicDeleteFieldInfo() == null) {
-            return StringUtils.EMPTY;
+            return StringPool.EMPTY;
         }
         return tableInfo.getLogicDeleteFieldInfo().getColumn();
     }

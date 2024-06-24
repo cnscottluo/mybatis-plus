@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import static java.util.stream.Collectors.joining;
  * @author miemie
  * @since 2018-06-27
  */
-@SuppressWarnings("serial")
 public class GroupBySegmentList extends AbstractISegmentList {
 
     @Override

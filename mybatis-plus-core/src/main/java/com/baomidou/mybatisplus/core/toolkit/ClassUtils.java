@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,8 +42,6 @@ public final class ClassUtils {
             // AccessControlException on Google App Engine
         }
     }
-
-    private static final char PACKAGE_SEPARATOR = '.';
 
     /**
      * 代理 class 的名称
@@ -210,8 +208,8 @@ public final class ClassUtils {
      */
     public static String getPackageName(String fqClassName) {
         Assert.notNull(fqClassName, "Class name must not be null");
-        int lastDotIndex = fqClassName.lastIndexOf(PACKAGE_SEPARATOR);
-        return (lastDotIndex != -1 ? fqClassName.substring(0, lastDotIndex) : "");
+        int lastDotIndex = fqClassName.lastIndexOf(StringPool.DOT);
+        return (lastDotIndex != -1 ? fqClassName.substring(0, lastDotIndex) : StringPool.EMPTY);
     }
 
     /**

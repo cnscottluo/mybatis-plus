@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,38 +15,14 @@
  */
 package com.baomidou.mybatisplus.core.injector.methods;
 
-import com.baomidou.mybatisplus.core.enums.SqlMethod;
-import com.baomidou.mybatisplus.core.injector.AbstractMethod;
-import com.baomidou.mybatisplus.core.metadata.TableInfo;
-import com.baomidou.mybatisplus.core.toolkit.sql.SqlScriptUtils;
-import org.apache.ibatis.mapping.MappedStatement;
-import org.apache.ibatis.mapping.SqlSource;
-
 /**
  * 根据 ID 集合删除
  *
  * @author hubin
  * @since 2018-04-06
+ * @deprecated 3.5.7 {@link DeleteByIds}
  */
-public class DeleteBatchByIds extends AbstractMethod {
+@Deprecated
+public class DeleteBatchByIds extends DeleteByIds {
 
-    @Override
-    public MappedStatement injectMappedStatement(Class<?> mapperClass, Class<?> modelClass, TableInfo tableInfo) {
-        String sql;
-        SqlMethod sqlMethod = SqlMethod.LOGIC_DELETE_BATCH_BY_IDS;
-        if (tableInfo.isWithLogicDelete()) {
-            sql = String.format(sqlMethod.getSql(), tableInfo.getTableName(), sqlLogicSet(tableInfo),
-                tableInfo.getKeyColumn(),
-                SqlScriptUtils.convertForeach("#{item}", COLLECTION, null, "item", COMMA),
-                tableInfo.getLogicDeleteSql(true, true));
-            SqlSource sqlSource = languageDriver.createSqlSource(configuration, sql, Object.class);
-            return addUpdateMappedStatement(mapperClass, modelClass, getMethod(sqlMethod), sqlSource);
-        } else {
-            sqlMethod = SqlMethod.DELETE_BATCH_BY_IDS;
-            sql = String.format(sqlMethod.getSql(), tableInfo.getTableName(), tableInfo.getKeyColumn(),
-                SqlScriptUtils.convertForeach("#{item}", COLLECTION, null, "item", COMMA));
-            SqlSource sqlSource = languageDriver.createSqlSource(configuration, sql, Object.class);
-            return this.addDeleteMappedStatement(mapperClass, getMethod(sqlMethod), sqlSource);
-        }
-    }
 }

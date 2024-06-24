@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,9 @@ import com.baomidou.mybatisplus.core.toolkit.StringPool;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.DialectModel;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  * SQLServer 2005 数据库分页方言
  *
@@ -27,14 +30,22 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.DialectModel;
  */
 public class SQLServer2005Dialect implements IDialect {
 
-    private static String getOrderByPart(String sql) {
-        String loweredString = sql.toLowerCase();
-        int orderByIndex = loweredString.indexOf("order by");
-        if (orderByIndex != -1) {
-            return sql.substring(orderByIndex);
-        } else {
+    private static final Pattern ORDER_BY_PATTERN = Pattern.compile("\\((.)*order by(.)*\\)");
+
+    private static final Pattern SELECT_PATTERN = Pattern.compile("(?i)select\\s+(distinct\\s+)?");
+
+    public String getOrderByPart(String sql) {
+        String order_by = "order by";
+        int lastIndex = sql.toLowerCase().lastIndexOf(order_by);
+        if (lastIndex == -1) {
             return StringPool.EMPTY;
         }
+        Matcher matcher = ORDER_BY_PATTERN.matcher(sql);
+        if (!matcher.find()) {
+            return sql.substring(lastIndex);
+        }
+        int end = matcher.end();
+        return lastIndex < end ? StringPool.EMPTY : sql.substring(lastIndex);
     }
 
     @Override
@@ -42,19 +53,16 @@ public class SQLServer2005Dialect implements IDialect {
         StringBuilder pagingBuilder = new StringBuilder();
         String orderby = getOrderByPart(originalSql);
         String distinctStr = StringPool.EMPTY;
-
-        String loweredString = originalSql.toLowerCase();
         String sqlPartString = originalSql;
-        if (loweredString.trim().startsWith("select")) {
-            int index = 6;
-            if (loweredString.startsWith("select distinct")) {
+        Matcher matcher = SELECT_PATTERN.matcher(originalSql);
+        if (matcher.find()) {
+            int index = matcher.end() - 1;
+            if (matcher.group().toLowerCase().contains("distinct")) {
                 distinctStr = "DISTINCT ";
-                index = 15;
             }
             sqlPartString = sqlPartString.substring(index);
         }
         pagingBuilder.append(sqlPartString);
-
         // if no ORDER BY is specified use fake ORDER BY field to avoid errors
         if (StringUtils.isBlank(orderby)) {
             orderby = "ORDER BY CURRENT_TIMESTAMP";

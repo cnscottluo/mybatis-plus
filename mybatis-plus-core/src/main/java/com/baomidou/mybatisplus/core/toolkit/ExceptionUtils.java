@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,4 +59,9 @@ public final class ExceptionUtils {
         return new MybatisPlusException(t);
     }
 
+    public static void throwMpe(boolean condition, String msg, Object... params) {
+        if (condition) {
+            throw mpe(msg, params);
+        }
+    }
 }

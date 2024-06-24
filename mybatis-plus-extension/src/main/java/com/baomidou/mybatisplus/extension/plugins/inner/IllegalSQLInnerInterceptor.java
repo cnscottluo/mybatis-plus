@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,10 +22,13 @@ import com.baomidou.mybatisplus.core.toolkit.EncryptUtils;
 import com.baomidou.mybatisplus.core.toolkit.PluginUtils;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.parser.JsqlParserSupport;
+import com.baomidou.mybatisplus.extension.toolkit.SqlParserUtils;
 import lombok.Data;
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.Function;
+import net.sf.jsqlparser.expression.Parenthesis;
+import net.sf.jsqlparser.expression.operators.arithmetic.Subtraction;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
 import net.sf.jsqlparser.expression.operators.relational.InExpression;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
@@ -35,7 +38,6 @@ import net.sf.jsqlparser.statement.delete.Delete;
 import net.sf.jsqlparser.statement.select.Join;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
-import net.sf.jsqlparser.statement.select.SubSelect;
 import net.sf.jsqlparser.statement.update.Update;
 import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.BoundSql;
@@ -46,7 +48,13 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -92,7 +100,9 @@ public class IllegalSQLInnerInterceptor extends JsqlParserSupport implements Inn
         PluginUtils.MPStatementHandler mpStatementHandler = PluginUtils.mpStatementHandler(sh);
         MappedStatement ms = mpStatementHandler.mappedStatement();
         SqlCommandType sct = ms.getSqlCommandType();
-        if (sct == SqlCommandType.INSERT || InterceptorIgnoreHelper.willIgnoreIllegalSql(ms.getId())) return;
+        if (sct == SqlCommandType.INSERT || InterceptorIgnoreHelper.willIgnoreIllegalSql(ms.getId())) {
+            return;
+        }
         BoundSql boundSql = mpStatementHandler.boundSql();
         String originalSql = boundSql.getSql();
         logger.debug("检查SQL是否合规，SQL:" + originalSql);
@@ -108,13 +118,15 @@ public class IllegalSQLInnerInterceptor extends JsqlParserSupport implements Inn
 
     @Override
     protected void processSelect(Select select, int index, String sql, Object obj) {
-        PlainSelect plainSelect = (PlainSelect) select.getSelectBody();
-        Expression where = plainSelect.getWhere();
-        Assert.notNull(where, "非法SQL，必须要有where条件");
-        Table table = (Table) plainSelect.getFromItem();
-        List<Join> joins = plainSelect.getJoins();
-        validWhere(where, table, (Connection) obj);
-        validJoins(joins, table, (Connection) obj);
+        if (select instanceof PlainSelect) {
+            PlainSelect plainSelect = (PlainSelect) select;
+            Expression where = plainSelect.getWhere();
+            Assert.notNull(where, "非法SQL，必须要有where条件");
+            Table table = (Table) plainSelect.getFromItem();
+            List<Join> joins = plainSelect.getJoins();
+            validWhere(where, table, (Connection) obj);
+            validJoins(joins, table, (Connection) obj);
+        }
     }
 
     @Override
@@ -143,6 +155,10 @@ public class IllegalSQLInnerInterceptor extends JsqlParserSupport implements Inn
      * @param expression ignore
      */
     private void validExpression(Expression expression) {
+        while (expression instanceof Parenthesis) {
+            Parenthesis parenthesis = (Parenthesis) expression;
+            expression = parenthesis.getExpression();
+        }
         //where条件使用了 or 关键字
         if (expression instanceof OrExpression) {
             OrExpression orExpression = (OrExpression) expression;
@@ -160,14 +176,14 @@ public class IllegalSQLInnerInterceptor extends JsqlParserSupport implements Inn
                 Function function = (Function) binaryExpression.getLeftExpression();
                 throw new MybatisPlusException("非法SQL，where条件中不能使用数据库函数，错误函数信息：" + function.toString());
             }
-            if (binaryExpression.getRightExpression() instanceof SubSelect) {
-                SubSelect subSelect = (SubSelect) binaryExpression.getRightExpression();
+            if (binaryExpression.getRightExpression() instanceof Subtraction) {
+                Subtraction subSelect = (Subtraction) binaryExpression.getRightExpression();
                 throw new MybatisPlusException("非法SQL，where条件中不能使用子查询，错误子查询SQL信息：" + subSelect.toString());
             }
         } else if (expression instanceof InExpression) {
             InExpression inExpression = (InExpression) expression;
-            if (inExpression.getRightItemsList() instanceof SubSelect) {
-                SubSelect subSelect = (SubSelect) inExpression.getRightItemsList();
+            if (inExpression.getRightExpression() instanceof Subtraction) {
+                Subtraction subSelect = (Subtraction) inExpression.getRightExpression();
                 throw new MybatisPlusException("非法SQL，where条件中不能使用子查询，错误子查询SQL信息：" + subSelect.toString());
             }
         }
@@ -186,8 +202,10 @@ public class IllegalSQLInnerInterceptor extends JsqlParserSupport implements Inn
         if (joins != null) {
             for (Join join : joins) {
                 Table rightTable = (Table) join.getRightItem();
-                Expression expression = join.getOnExpression();
-                validWhere(expression, table, rightTable, connection);
+                Collection<Expression> onExpressions = join.getOnExpressions();
+                for (Expression expression : onExpressions) {
+                    validWhere(expression, table, rightTable, connection);
+                }
             }
         }
     }
@@ -202,23 +220,25 @@ public class IllegalSQLInnerInterceptor extends JsqlParserSupport implements Inn
     private void validUseIndex(Table table, String columnName, Connection connection) {
         //是否使用索引
         boolean useIndexFlag = false;
-
-        String tableInfo = table.getName();
-        //表存在的索引
-        String dbName = null;
-        String tableName;
-        String[] tableArray = tableInfo.split("\\.");
-        if (tableArray.length == 1) {
-            tableName = tableArray[0];
-        } else {
-            dbName = tableArray[0];
-            tableName = tableArray[1];
-        }
-        List<IndexInfo> indexInfos = getIndexInfos(dbName, tableName, connection);
-        for (IndexInfo indexInfo : indexInfos) {
-            if (null != columnName && columnName.equalsIgnoreCase(indexInfo.getColumnName())) {
-                useIndexFlag = true;
-                break;
+        if (StringUtils.isNotBlank(columnName)) {
+            String tableInfo = table.getName();
+            //表存在的索引
+            String dbName = null;
+            String tableName;
+            String[] tableArray = tableInfo.split("\\.");
+            if (tableArray.length == 1) {
+                tableName = tableArray[0];
+            } else {
+                dbName = tableArray[0];
+                tableName = tableArray[1];
+            }
+            columnName = SqlParserUtils.removeWrapperSymbol(columnName);
+            List<IndexInfo> indexInfos = getIndexInfos(dbName, tableName, connection);
+            for (IndexInfo indexInfo : indexInfos) {
+                if (indexInfo.getColumnName().equalsIgnoreCase(columnName)) {
+                    useIndexFlag = true;
+                    break;
+                }
             }
         }
         if (!useIndexFlag) {
@@ -274,8 +294,10 @@ public class IllegalSQLInnerInterceptor extends JsqlParserSupport implements Inn
             }
 
             //获得右边表达式，并分解
-            Expression rightExpression = ((BinaryExpression) expression).getRightExpression();
-            validExpression(rightExpression);
+            if (joinTable != null) {
+                Expression rightExpression = ((BinaryExpression) expression).getRightExpression();
+                validExpression(rightExpression);
+            }
         }
     }
 
@@ -311,7 +333,7 @@ public class IllegalSQLInnerInterceptor extends JsqlParserSupport implements Inn
                 DatabaseMetaData metadata = conn.getMetaData();
                 String catalog = StringUtils.isBlank(dbName) ? conn.getCatalog() : dbName;
                 String schema = StringUtils.isBlank(dbName) ? conn.getSchema() : dbName;
-                rs = metadata.getIndexInfo(catalog, schema, tableName, false, true);
+                rs = metadata.getIndexInfo(catalog, schema, SqlParserUtils.removeWrapperSymbol(tableName), false, true);
                 indexInfos = new ArrayList<>();
                 while (rs.next()) {
                     //索引中的列序列号等于1，才有效
@@ -327,7 +349,7 @@ public class IllegalSQLInnerInterceptor extends JsqlParserSupport implements Inn
                     indexInfoMap.put(key, indexInfos);
                 }
             } catch (SQLException e) {
-                e.printStackTrace();
+                logger.error(String.format("getIndexInfo fault, with key:%s, dbName:%s, tableName:%s", key, dbName, tableName), e);
             }
         }
         return indexInfos;

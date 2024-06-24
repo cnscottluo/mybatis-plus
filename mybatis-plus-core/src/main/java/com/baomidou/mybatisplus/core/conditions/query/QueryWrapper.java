@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,14 @@ package com.baomidou.mybatisplus.core.conditions.query;
 import com.baomidou.mybatisplus.core.conditions.AbstractWrapper;
 import com.baomidou.mybatisplus.core.conditions.SharedString;
 import com.baomidou.mybatisplus.core.conditions.segments.MergeSegments;
+import com.baomidou.mybatisplus.core.exceptions.MybatisPlusException;
 import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
-import com.baomidou.mybatisplus.core.toolkit.ArrayUtils;
+import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.StringPool;
-import com.baomidou.mybatisplus.core.toolkit.StringUtils;
+import com.baomidou.mybatisplus.core.toolkit.sql.SqlInjectionUtils;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
@@ -34,21 +36,25 @@ import java.util.function.Predicate;
  * @author hubin miemie HCL
  * @since 2018-05-25
  */
-@SuppressWarnings("serial")
 public class QueryWrapper<T> extends AbstractWrapper<T, String, QueryWrapper<T>>
     implements Query<QueryWrapper<T>, T, String> {
 
     /**
      * 查询字段
      */
-    private final SharedString sqlSelect = new SharedString();
+    protected final SharedString sqlSelect = new SharedString();
 
     public QueryWrapper() {
-        this(null);
+        this((T) null);
     }
 
     public QueryWrapper(T entity) {
         super.setEntity(entity);
+        super.initNeed();
+    }
+
+    public QueryWrapper(Class<T> entityClass) {
+        super.setEntityClass(entityClass);
         super.initNeed();
     }
 
@@ -77,9 +83,31 @@ public class QueryWrapper<T> extends AbstractWrapper<T, String, QueryWrapper<T>>
         this.sqlFirst = sqlFirst;
     }
 
+
+    /**
+     * 检查 SQL 注入过滤
+     */
+    private boolean checkSqlInjection;
+
+    /**
+     * 开启检查 SQL 注入
+     */
+    public QueryWrapper<T> checkSqlInjection() {
+        this.checkSqlInjection = true;
+        return this;
+    }
+
     @Override
-    public QueryWrapper<T> select(String... columns) {
-        if (ArrayUtils.isNotEmpty(columns)) {
+    protected String columnToString(String column) {
+        if (checkSqlInjection && SqlInjectionUtils.check(column)) {
+            throw new MybatisPlusException("Discovering SQL injection column: " + column);
+        }
+        return column;
+    }
+
+    @Override
+    public QueryWrapper<T> select(boolean condition, List<String> columns) {
+        if (condition && CollectionUtils.isNotEmpty(columns)) {
             this.sqlSelect.setStringValue(String.join(StringPool.COMMA, columns));
         }
         return typedThis;
@@ -95,11 +123,6 @@ public class QueryWrapper<T> extends AbstractWrapper<T, String, QueryWrapper<T>>
     @Override
     public String getSqlSelect() {
         return sqlSelect.getStringValue();
-    }
-
-    @Override
-    protected String columnSqlInjectFilter(String column) {
-        return StringUtils.replaceBlank(column);
     }
 
     /**

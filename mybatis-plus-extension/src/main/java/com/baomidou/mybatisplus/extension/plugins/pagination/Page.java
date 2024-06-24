@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package com.baomidou.mybatisplus.extension.plugins.pagination;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.metadata.OrderItem;
-import lombok.Getter;
 import lombok.Setter;
 
 import java.util.ArrayList;
@@ -58,7 +57,6 @@ public class Page<T> implements IPage<T> {
     /**
      * 排序字段信息
      */
-    @Getter
     @Setter
     protected List<OrderItem> orders = new ArrayList<>();
 
@@ -69,19 +67,22 @@ public class Page<T> implements IPage<T> {
     /**
      * 是否进行 count 查询
      */
-    protected boolean isSearchCount = true;
+    protected boolean searchCount = true;
     /**
-     * countId
+     * {@link #optimizeJoinOfCountSql()}
      */
-    @Getter
     @Setter
-    protected String countId;
+    protected boolean optimizeJoinOfCountSql = true;
     /**
-     * countId
+     * 单页分页条数限制
      */
-    @Getter
     @Setter
     protected Long maxLimit;
+    /**
+     * countId
+     */
+    @Setter
+    protected String countId;
 
     public Page() {
     }
@@ -100,17 +101,17 @@ public class Page<T> implements IPage<T> {
         this(current, size, total, true);
     }
 
-    public Page(long current, long size, boolean isSearchCount) {
-        this(current, size, 0, isSearchCount);
+    public Page(long current, long size, boolean searchCount) {
+        this(current, size, 0, searchCount);
     }
 
-    public Page(long current, long size, long total, boolean isSearchCount) {
+    public Page(long current, long size, long total, boolean searchCount) {
         if (current > 1) {
             this.current = current;
         }
         this.size = size;
         this.total = total;
-        this.isSearchCount = isSearchCount;
+        this.searchCount = searchCount;
     }
 
     /**
@@ -177,12 +178,12 @@ public class Page<T> implements IPage<T> {
 
     @Override
     public String countId() {
-        return getCountId();
+        return this.countId;
     }
 
     @Override
     public Long maxLimit() {
-        return getMaxLimit();
+        return this.maxLimit;
     }
 
     /**
@@ -238,7 +239,7 @@ public class Page<T> implements IPage<T> {
 
     @Override
     public List<OrderItem> orders() {
-        return getOrders();
+        return this.orders;
     }
 
     @Override
@@ -246,22 +247,17 @@ public class Page<T> implements IPage<T> {
         return optimizeCountSql;
     }
 
-    @Deprecated
-    public boolean isOptimizeCountSql() {
-        return optimizeCountSql();
+    public static <T> Page<T> of(long current, long size, long total, boolean searchCount) {
+        return new Page<>(current, size, total, searchCount);
     }
 
-    @Deprecated
     @Override
-    public boolean isSearchCount() {
-        if (total < 0) {
-            return false;
-        }
-        return isSearchCount;
+    public boolean optimizeJoinOfCountSql() {
+        return optimizeJoinOfCountSql;
     }
 
-    public Page<T> setSearchCount(boolean isSearchCount) {
-        this.isSearchCount = isSearchCount;
+    public Page<T> setSearchCount(boolean searchCount) {
+        this.searchCount = searchCount;
         return this;
     }
 
@@ -285,11 +281,32 @@ public class Page<T> implements IPage<T> {
         return of(current, size, total, true);
     }
 
-    public static <T> Page<T> of(long current, long size, boolean isSearchCount) {
-        return of(current, size, 0, isSearchCount);
+    public static <T> Page<T> of(long current, long size, boolean searchCount) {
+        return of(current, size, 0, searchCount);
     }
 
-    public static <T> Page<T> of(long current, long size, long total, boolean isSearchCount) {
-        return new Page(current, size, total, isSearchCount);
+    @Override
+    public boolean searchCount() {
+        if (total < 0) {
+            return false;
+        }
+        return searchCount;
     }
+
+    @Override
+    public String toString() {
+        return "Page{" +
+            "records=" + records +
+            ", total=" + total +
+            ", size=" + size +
+            ", current=" + current +
+            ", orders=" + orders +
+            ", optimizeCountSql=" + optimizeCountSql +
+            ", searchCount=" + searchCount +
+            ", optimizeJoinOfCountSql=" + optimizeJoinOfCountSql +
+            ", maxLimit=" + maxLimit +
+            ", countId='" + countId + '\'' +
+            '}';
+    }
+
 }

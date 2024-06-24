@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package com.baomidou.mybatisplus.core.incrementer;
 
 
+import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.annotation.KeySequence;
 
 /**
@@ -33,4 +34,9 @@ public interface IKeyGenerator {
      * @return sql
      */
     String executeSql(String incrementerName);
+
+    /**
+     * 数据库类型
+     */
+    DbType dbType();
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
- * 只放mybatis-plus核心代码，不涉及数据库，不添加spring等
+ * 只放mybatis-plus核心代码
  *
  * @author yuxiaobin
  * @since 2018-02-07

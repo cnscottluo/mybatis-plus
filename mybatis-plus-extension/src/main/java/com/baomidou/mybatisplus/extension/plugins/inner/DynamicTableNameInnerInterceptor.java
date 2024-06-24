@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,13 @@
 package com.baomidou.mybatisplus.extension.plugins.inner;
 
 import com.baomidou.mybatisplus.core.plugins.InterceptorIgnoreHelper;
+import com.baomidou.mybatisplus.core.toolkit.ExceptionUtils;
 import com.baomidou.mybatisplus.core.toolkit.PluginUtils;
 import com.baomidou.mybatisplus.core.toolkit.TableNameParser;
 import com.baomidou.mybatisplus.extension.plugins.handler.TableNameHandler;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.BoundSql;
@@ -34,7 +35,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 动态表名
@@ -42,18 +42,25 @@ import java.util.Map;
  * @author jobob
  * @since 3.4.0
  */
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
-@AllArgsConstructor
 @SuppressWarnings({"rawtypes"})
 public class DynamicTableNameInnerInterceptor implements InnerInterceptor {
+    private Runnable hook;
+    /**
+     * 表名处理器，是否处理表名的情况都在该处理器中自行判断
+     */
+    private TableNameHandler tableNameHandler;
 
-    private Map<String, TableNameHandler> tableNameHandlerMap;
+    public DynamicTableNameInnerInterceptor(TableNameHandler tableNameHandler) {
+        this.tableNameHandler = tableNameHandler;
+    }
 
     @Override
     public void beforeQuery(Executor executor, MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, BoundSql boundSql) throws SQLException {
-        PluginUtils.MPBoundSql mpBs = PluginUtils.mpBoundSql(boundSql);
         if (InterceptorIgnoreHelper.willIgnoreDynamicTableName(ms.getId())) return;
+        PluginUtils.MPBoundSql mpBs = PluginUtils.mpBoundSql(boundSql);
         mpBs.sql(this.changeTable(mpBs.sql()));
     }
 
@@ -63,13 +70,16 @@ public class DynamicTableNameInnerInterceptor implements InnerInterceptor {
         MappedStatement ms = mpSh.mappedStatement();
         SqlCommandType sct = ms.getSqlCommandType();
         if (sct == SqlCommandType.INSERT || sct == SqlCommandType.UPDATE || sct == SqlCommandType.DELETE) {
-            if (InterceptorIgnoreHelper.willIgnoreDynamicTableName(ms.getId())) return;
+            if (InterceptorIgnoreHelper.willIgnoreDynamicTableName(ms.getId())) {
+                return;
+            }
             PluginUtils.MPBoundSql mpBs = mpSh.mPBoundSql();
             mpBs.sql(this.changeTable(mpBs.sql()));
         }
     }
 
-    protected String changeTable(String sql) {
+    public String changeTable(String sql) {
+        ExceptionUtils.throwMpe(null == tableNameHandler, "Please implement TableNameHandler processing logic");
         TableNameParser parser = new TableNameParser(sql);
         List<TableNameParser.SqlToken> names = new ArrayList<>();
         parser.accept(names::add);
@@ -79,18 +89,15 @@ public class DynamicTableNameInnerInterceptor implements InnerInterceptor {
             int start = name.getStart();
             if (start != last) {
                 builder.append(sql, last, start);
-                String value = name.getValue();
-                TableNameHandler handler = tableNameHandlerMap.get(value);
-                if (handler != null) {
-                    builder.append(handler.dynamicTableName(sql, value));
-                } else {
-                    builder.append(value);
-                }
+                builder.append(tableNameHandler.dynamicTableName(sql, name.getValue()));
             }
             last = name.getEnd();
         }
         if (last != sql.length()) {
             builder.append(sql.substring(last));
+        }
+        if (hook != null) {
+            hook.run();
         }
         return builder.toString();
     }

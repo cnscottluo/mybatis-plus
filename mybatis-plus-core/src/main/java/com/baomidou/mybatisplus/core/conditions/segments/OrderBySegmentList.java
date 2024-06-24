@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package com.baomidou.mybatisplus.core.conditions.segments;
 
 import com.baomidou.mybatisplus.core.conditions.ISqlSegment;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.baomidou.mybatisplus.core.enums.SqlKeyword.ORDER_BY;
@@ -28,15 +29,14 @@ import static java.util.stream.Collectors.joining;
  * @author miemie
  * @since 2018-06-27
  */
-@SuppressWarnings("serial")
 public class OrderBySegmentList extends AbstractISegmentList {
 
     @Override
     protected boolean transformList(List<ISqlSegment> list, ISqlSegment firstSegment, ISqlSegment lastSegment) {
         list.remove(0);
-        final String sql = list.stream().map(ISqlSegment::getSqlSegment).collect(joining(SPACE));
+        final List<ISqlSegment> sqlSegmentList = new ArrayList<>(list);
         list.clear();
-        list.add(() -> sql);
+        list.add(() -> sqlSegmentList.stream().map(ISqlSegment::getSqlSegment).collect(joining(SPACE)));
         return true;
     }
 

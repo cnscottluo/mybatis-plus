@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package com.baomidou.mybatisplus.core.toolkit;
 
 import java.lang.reflect.Array;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -32,7 +33,7 @@ public class ObjectUtils {
      */
     public static boolean isNull(Object... objs) {
         for (Object obj : objs) {
-            if (ObjectUtils.isEmpty(obj)) {
+            if (isEmpty(obj)) {
                 return true;
             }
         }
@@ -43,14 +44,14 @@ public class ObjectUtils {
      * 判断object是否不为空,集合会校验size
      */
     public static boolean isNotNull(Object... obj) {
-        return !ObjectUtils.isNull(obj);
+        return !isNull(obj);
     }
 
     /**
      * 对象非空判断
      */
     public static boolean isNotEmpty(Object obj) {
-        return !ObjectUtils.isEmpty(obj);
+        return !isEmpty(obj);
     }
 
     /**
@@ -72,6 +73,12 @@ public class ObjectUtils {
         }
         if (obj instanceof Map) {
             return ((Map<?, ?>) obj).isEmpty();
+        }
+        if (obj instanceof Iterable) {
+            return !((Iterable<?>) obj).iterator().hasNext();
+        }
+        if (obj instanceof Iterator) {
+            return !((Iterator<?>) obj).hasNext();
         }
         // else
         return false;

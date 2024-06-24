@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import com.baomidou.mybatisplus.core.incrementer.IdentifierGenerator;
 import com.baomidou.mybatisplus.core.injector.SqlRunnerInjector;
 import com.baomidou.mybatisplus.core.toolkit.GlobalConfigUtils;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.baomidou.mybatisplus.core.toolkit.NetUtils;
 import org.apache.ibatis.exceptions.ExceptionFactory;
 import org.apache.ibatis.executor.ErrorContext;
 import org.apache.ibatis.session.Configuration;
@@ -30,6 +31,7 @@ import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+import java.net.InetAddress;
 import java.util.Properties;
 
 /**
@@ -43,7 +45,6 @@ public class MybatisSqlSessionFactoryBuilder extends SqlSessionFactoryBuilder {
     @Override
     public SqlSessionFactory build(Reader reader, String environment, Properties properties) {
         try {
-            //TODO 这里换成 MybatisXMLConfigBuilder 而不是 XMLConfigBuilder
             MybatisXMLConfigBuilder parser = new MybatisXMLConfigBuilder(reader, environment, properties);
             return build(parser.parse());
         } catch (Exception e) {
@@ -62,7 +63,6 @@ public class MybatisSqlSessionFactoryBuilder extends SqlSessionFactoryBuilder {
     @Override
     public SqlSessionFactory build(InputStream inputStream, String environment, Properties properties) {
         try {
-            //TODO 这里换成 MybatisXMLConfigBuilder 而不是 XMLConfigBuilder
             MybatisXMLConfigBuilder parser = new MybatisXMLConfigBuilder(inputStream, environment, properties);
             return build(parser.parse());
         } catch (Exception e) {
@@ -77,22 +77,24 @@ public class MybatisSqlSessionFactoryBuilder extends SqlSessionFactoryBuilder {
         }
     }
 
-    // TODO 使用自己的逻辑,注入必须组件
     @Override
     public SqlSessionFactory build(Configuration configuration) {
         GlobalConfig globalConfig = GlobalConfigUtils.getGlobalConfig(configuration);
+
         final IdentifierGenerator identifierGenerator;
-        if (globalConfig.getIdentifierGenerator() == null) {
-            if (null != globalConfig.getWorkerId() && null != globalConfig.getDatacenterId()) {
-                identifierGenerator = new DefaultIdentifierGenerator(globalConfig.getWorkerId(), globalConfig.getDatacenterId());
+        if (null == globalConfig.getIdentifierGenerator()) {
+            GlobalConfig.Sequence sequence = globalConfig.getSequence();
+            if (sequence.getWorkerId() != null && sequence.getDatacenterId() != null) {
+                identifierGenerator = new DefaultIdentifierGenerator(sequence.getWorkerId(), sequence.getDatacenterId());
             } else {
-                identifierGenerator = new DefaultIdentifierGenerator();
+                NetUtils.NetProperties netProperties = new NetUtils.NetProperties(sequence.getPreferredNetworks(), sequence.getIgnoredInterfaces());
+                InetAddress inetAddress = new NetUtils(netProperties).findFirstNonLoopbackAddress();
+                identifierGenerator = new DefaultIdentifierGenerator(inetAddress);
             }
             globalConfig.setIdentifierGenerator(identifierGenerator);
         } else {
             identifierGenerator = globalConfig.getIdentifierGenerator();
         }
-        //TODO 这里只是为了兼容下,并没多大重要,方法标记过时了.
         IdWorker.setIdentifierGenerator(identifierGenerator);
 
         if (globalConfig.isEnableSqlRunner()) {

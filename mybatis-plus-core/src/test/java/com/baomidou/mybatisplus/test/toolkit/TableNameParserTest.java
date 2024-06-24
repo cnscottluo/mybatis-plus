@@ -1,18 +1,3 @@
-/*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
- */
 package com.baomidou.mybatisplus.test.toolkit;
 
 
@@ -491,6 +476,23 @@ public class TableNameParserTest {
         String sql = "INSERT INTO cf_procedure (_id,password) VALUES ('1','password') ON DUPLICATE KEY UPDATE id = 'UpId', password = 'upPassword';";
         assertThat(new TableNameParser(sql).tables()).isEqualTo(asSet("cf_procedure"));
     }
+
+    @Test
+    public void testUpdateIgnore() {
+        String sql = "update ignore student set name = 'abc' where id = 4";
+        assertThat(new TableNameParser(sql).tables()).isEqualTo(asSet("student"));
+
+        sql = "UPDATE IGNORE student set name = 'abc' where id = 4";
+        assertThat(new TableNameParser(sql).tables()).isEqualTo(asSet("student"));
+    }
+
+    @Test
+    public void testInsertIgnore() {
+        String sql = "INSERT IGNORE INTO student (userid,username) VALUES (2,'swan'),(4,'bear') ;";
+        assertThat(new TableNameParser(sql).tables()).isEqualTo(asSet("student"));
+    }
+
+
 
     private static Collection<String> asSet(String... a) {
         Set<String> result = new HashSet<>();

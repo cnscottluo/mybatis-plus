@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,11 @@
  */
 package com.baomidou.mybatisplus.core.toolkit;
 
+import com.baomidou.mybatisplus.core.toolkit.sql.SqlInjectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.sql.StringEscape;
 import com.baomidou.mybatisplus.core.toolkit.support.BiIntFunction;
 
 import java.util.Collection;
-import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,10 +34,6 @@ import static java.util.stream.Collectors.joining;
  */
 public final class StringUtils {
 
-    /**
-     * 空字符
-     */
-    public static final String EMPTY = StringPool.EMPTY;
     /**
      * 字符串 is
      */
@@ -59,6 +55,13 @@ public final class StringUtils {
      * 是否为大写命名
      */
     private static final Pattern CAPITAL_MODE = Pattern.compile("^[0-9A-Z/_]+$");
+
+    /**
+     * 字符串去除空白内容
+     *
+     * <ul> <li>'"<>&*+=#-; sql注入黑名单</li> <li>\n 回车</li> <li>\t 水平制表符</li> <li>\s 空格</li> <li>\r 换行</li> </ul>
+     */
+    private static final Pattern REPLACE_BLANK = Pattern.compile("'|\"|\\<|\\>|&|\\*|\\+|=|#|-|;|\\s*|\t|\r|\n");
 
     /**
      * 判断字符串中是否全是空白字符
@@ -93,6 +96,14 @@ public final class StringUtils {
      */
     public static boolean isNotBlank(CharSequence cs) {
         return !isBlank(cs);
+    }
+
+    public static boolean isEmpty(CharSequence cs) {
+        return cs == null || cs.length() == 0;
+    }
+
+    public static boolean isNotEmpty(CharSequence cs) {
+        return !isEmpty(cs);
     }
 
     /**
@@ -139,7 +150,7 @@ public final class StringUtils {
      */
     public static String camelToUnderline(String param) {
         if (isBlank(param)) {
-            return EMPTY;
+            return StringPool.EMPTY;
         }
         int len = param.length();
         StringBuilder sb = new StringBuilder(len);
@@ -161,7 +172,7 @@ public final class StringUtils {
      */
     public static String underlineToCamel(String param) {
         if (isBlank(param)) {
-            return EMPTY;
+            return StringPool.EMPTY;
         }
         String temp = param.toLowerCase();
         int len = temp.length();
@@ -187,7 +198,7 @@ public final class StringUtils {
      */
     public static String firstToLowerCase(String param) {
         if (isBlank(param)) {
-            return EMPTY;
+            return StringPool.EMPTY;
         }
         return param.substring(0, 1).toLowerCase() + param.substring(1);
     }
@@ -298,7 +309,7 @@ public final class StringUtils {
      */
     public static String concatCapitalize(String concatStr, final String str) {
         if (isBlank(concatStr)) {
-            concatStr = EMPTY;
+            concatStr = StringPool.EMPTY;
         }
         if (str == null || str.length() == 0) {
             return str;
@@ -321,7 +332,7 @@ public final class StringUtils {
      */
     public static boolean checkValNotNull(Object object) {
         if (object instanceof CharSequence) {
-            return isNotBlank((CharSequence) object);
+            return isNotEmpty((CharSequence) object);
         }
         return object != null;
     }
@@ -485,10 +496,10 @@ public final class StringUtils {
             if (lastOneIsNotUnderscore && (isUpperCaseAndPreviousIsLowerCase || previousIsWhitespace)) {
                 buf.append(StringPool.UNDERSCORE);
             } else if ((Character.isDigit(previousChar) && Character.isLetter(c))) {
-                buf.append('_');
+                buf.append(UNDERLINE);
             }
             if ((shouldReplace(c)) && (lastOneIsNotUnderscore)) {
-                buf.append('_');
+                buf.append(UNDERLINE);
             } else if (!Character.isWhitespace(c) && (isNotUnderscore || lastOneIsNotUnderscore)) {
                 buf.append(Character.toUpperCase(c));
             }
@@ -514,9 +525,9 @@ public final class StringUtils {
                 buf.append(StringPool.DASH);
             }
             if ('_' == c) {
-                buf.append('-');
+                buf.append(StringPool.DASH);
             } else if ('.' == c) {
-                buf.append('-');
+                buf.append(StringPool.DASH);
             } else if (!Character.isWhitespace(c)) {
                 buf.append(Character.toLowerCase(c));
             }
@@ -570,19 +581,40 @@ public final class StringUtils {
     }
 
     /**
-     * 字符串去除空白内容：
-     * \n 回车
-     * \t 水平制表符
-     * \s 空格
-     * \r 换行
+     * SQL 注入字符串去除空白内容：
+     * <ul>
+     *     <li>\n 回车</li>
+     *     <li>\t 水平制表符</li>
+     *     <li>\s 空格</li>
+     *     <li>\r 换行</li>
+     * </ul>
      *
      * @param str 字符串
-     * @return
      */
-    public static String replaceBlank(String str) {
-        Objects.requireNonNull(str);
-        Pattern pattern = Pattern.compile("\\s*|\t|\r|\n");
-        Matcher matcher = pattern.matcher(str);
+    public static String sqlInjectionReplaceBlank(String str) {
+        if (SqlInjectionUtils.check(str)) {
+            /**
+             * 过滤sql黑名单字符，存在 SQL 注入，去除空白内容
+             */
+            str = replaceAllBlank(str);
+
+        }
+        return str;
+    }
+
+    /**
+     * 字符串去除空白内容：
+     * <ul>
+     *     <li>\n 回车</li>
+     *     <li>\t 水平制表符</li>
+     *     <li>\s 空格</li>
+     *     <li>\r 换行</li>
+     * </ul>
+     *
+     * @param str 字符串
+     */
+    public static String replaceAllBlank(String str) {
+        Matcher matcher = REPLACE_BLANK.matcher(str);
         return matcher.replaceAll("");
     }
 }

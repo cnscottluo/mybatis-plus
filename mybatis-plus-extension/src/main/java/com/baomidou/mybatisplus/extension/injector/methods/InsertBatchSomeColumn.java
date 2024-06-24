@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2024, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,8 @@ import com.baomidou.mybatisplus.core.injector.AbstractMethod;
 import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.core.toolkit.sql.SqlInjectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.sql.SqlScriptUtils;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.apache.ibatis.executor.keygen.Jdbc3KeyGenerator;
@@ -60,10 +59,6 @@ import java.util.function.Predicate;
  * @author miemie
  * @since 2018-11-29
  */
-
-@NoArgsConstructor
-@AllArgsConstructor
-@SuppressWarnings("serial")
 public class InsertBatchSomeColumn extends AbstractMethod {
 
     /**
@@ -73,16 +68,43 @@ public class InsertBatchSomeColumn extends AbstractMethod {
     @Accessors(chain = true)
     private Predicate<TableFieldInfo> predicate;
 
+    /**
+     * 默认方法名
+     */
+    public InsertBatchSomeColumn() {
+        super("insertBatchSomeColumn");
+    }
+
+    /**
+     * 默认方法名
+     *
+     * @param predicate 字段筛选条件
+     */
+    public InsertBatchSomeColumn(Predicate<TableFieldInfo> predicate) {
+        super("insertBatchSomeColumn");
+        this.predicate = predicate;
+    }
+
+    /**
+     * @param name      方法名
+     * @param predicate 字段筛选条件
+     * @since 3.5.0
+     */
+    public InsertBatchSomeColumn(String name, Predicate<TableFieldInfo> predicate) {
+        super(name);
+        this.predicate = predicate;
+    }
+
     @SuppressWarnings("Duplicates")
     @Override
     public MappedStatement injectMappedStatement(Class<?> mapperClass, Class<?> modelClass, TableInfo tableInfo) {
-        KeyGenerator keyGenerator = new NoKeyGenerator();
+        KeyGenerator keyGenerator = NoKeyGenerator.INSTANCE;
         SqlMethod sqlMethod = SqlMethod.INSERT_ONE;
         List<TableFieldInfo> fieldList = tableInfo.getFieldList();
-        String insertSqlColumn = tableInfo.getKeyInsertSqlColumn(false) +
+        String insertSqlColumn = tableInfo.getKeyInsertSqlColumn(true, null, false) +
             this.filterTableFieldInfo(fieldList, predicate, TableFieldInfo::getInsertSqlColumn, EMPTY);
         String columnScript = LEFT_BRACKET + insertSqlColumn.substring(0, insertSqlColumn.length() - 1) + RIGHT_BRACKET;
-        String insertSqlProperty = tableInfo.getKeyInsertSqlProperty(ENTITY_DOT, false) +
+        String insertSqlProperty = tableInfo.getKeyInsertSqlProperty(true, ENTITY_DOT, false) +
             this.filterTableFieldInfo(fieldList, predicate, i -> i.getInsertSqlProperty(ENTITY_DOT), EMPTY);
         insertSqlProperty = LEFT_BRACKET + insertSqlProperty.substring(0, insertSqlProperty.length() - 1) + RIGHT_BRACKET;
         String valuesScript = SqlScriptUtils.convertForeach(insertSqlProperty, "list", null, ENTITY, COMMA);
@@ -92,25 +114,21 @@ public class InsertBatchSomeColumn extends AbstractMethod {
         if (tableInfo.havePK()) {
             if (tableInfo.getIdType() == IdType.AUTO) {
                 /* 自增主键 */
-                keyGenerator = new Jdbc3KeyGenerator();
+                keyGenerator = Jdbc3KeyGenerator.INSTANCE;
                 keyProperty = tableInfo.getKeyProperty();
-                keyColumn = tableInfo.getKeyColumn();
+                // 去除转义符
+                keyColumn = SqlInjectionUtils.removeEscapeCharacter(tableInfo.getKeyColumn());
             } else {
                 if (null != tableInfo.getKeySequence()) {
-                    keyGenerator = TableInfoHelper.genKeyGenerator(getMethod(sqlMethod), tableInfo, builderAssistant);
+                    keyGenerator = TableInfoHelper.genKeyGenerator(this.methodName, tableInfo, builderAssistant);
                     keyProperty = tableInfo.getKeyProperty();
                     keyColumn = tableInfo.getKeyColumn();
                 }
             }
         }
         String sql = String.format(sqlMethod.getSql(), tableInfo.getTableName(), columnScript, valuesScript);
-        SqlSource sqlSource = languageDriver.createSqlSource(configuration, sql, modelClass);
-        return this.addInsertMappedStatement(mapperClass, modelClass, getMethod(sqlMethod), sqlSource, keyGenerator, keyProperty, keyColumn);
+        SqlSource sqlSource = super.createSqlSource(configuration, sql, modelClass);
+        return this.addInsertMappedStatement(mapperClass, modelClass, methodName, sqlSource, keyGenerator, keyProperty, keyColumn);
     }
 
-    @Override
-    public String getMethod(SqlMethod sqlMethod) {
-        // 自定义 mapper 方法名
-        return "insertBatchSomeColumn";
-    }
 }
