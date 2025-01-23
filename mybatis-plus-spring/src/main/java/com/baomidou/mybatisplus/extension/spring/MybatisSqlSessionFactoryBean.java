@@ -134,15 +134,6 @@ public class MybatisSqlSessionFactoryBean implements FactoryBean<SqlSessionFacto
 
     private ObjectWrapperFactory objectWrapperFactory;
 
-    /**
-     * 不再需要这个配置,放心删除
-     *
-     * @deprecated 2022-03-07
-     */
-    @Setter
-    @Deprecated
-    private String typeEnumsPackage;
-
     @Setter
     private GlobalConfig globalConfig;
 
