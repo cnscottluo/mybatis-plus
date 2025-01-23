@@ -17,7 +17,6 @@ package com.baomidou.mybatisplus.extension.parser.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 /**
@@ -27,19 +26,12 @@ import java.util.function.Consumer;
  */
 public class FurySerialCaffeineJsqlParseCache extends AbstractCaffeineJsqlParseCache {
 
-    public FurySerialCaffeineJsqlParseCache(Cache < String, byte[] > cache) {
+    public FurySerialCaffeineJsqlParseCache(Cache<String, byte[]>cache) {
         super(cache);
     }
 
-    public FurySerialCaffeineJsqlParseCache(Consumer < Caffeine < Object, Object >> consumer) {
+    public FurySerialCaffeineJsqlParseCache(Consumer<Caffeine<Object, Object>> consumer) {
         super(consumer);
-    }
-
-    public FurySerialCaffeineJsqlParseCache(Cache < String, byte[] > cache, Executor executor, boolean async) {
-        super(cache);
-        // 开启异步
-        super.async = async;
-        super.executor = executor;
     }
 
     @Override
