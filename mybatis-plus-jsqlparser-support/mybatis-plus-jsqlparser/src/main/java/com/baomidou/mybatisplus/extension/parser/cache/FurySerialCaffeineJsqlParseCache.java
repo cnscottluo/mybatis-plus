@@ -27,29 +27,29 @@ import java.util.function.Consumer;
  */
 public class FurySerialCaffeineJsqlParseCache extends AbstractCaffeineJsqlParseCache {
 
-	public FurySerialCaffeineJsqlParseCache(Cache<String, byte[]> cache) {
-		super(cache);
-	}
+    public FurySerialCaffeineJsqlParseCache(Cache < String, byte[] > cache) {
+        super(cache);
+    }
 
-    public FurySerialCaffeineJsqlParseCache(Consumer<Caffeine<Object, Object>> consumer) {
+    public FurySerialCaffeineJsqlParseCache(Consumer < Caffeine < Object, Object >> consumer) {
         super(consumer);
     }
 
-	public FurySerialCaffeineJsqlParseCache(Cache<String, byte[]> cache, Executor executor, boolean async) {
-		super(cache);
-		// 开启异步
-		super.async = async;
-		super.executor = executor;
-	}
+    public FurySerialCaffeineJsqlParseCache(Cache < String, byte[] > cache, Executor executor, boolean async) {
+        super(cache);
+        // 开启异步
+        super.async = async;
+        super.executor = executor;
+    }
 
-	@Override
-	public byte[] serialize(Object obj) {
-		return FuryFactory.getFuryFactory().serialize(obj);
-	}
+    @Override
+    public byte[] serialize(Object obj) {
+        return FuryFactory.getFuryFactory().serialize(obj);
+    }
 
-	@Override
-	public Object deserialize(String sql, byte[] bytes) {
-		return FuryFactory.getFuryFactory().deserialize(bytes);
-	}
+    @Override
+    public Object deserialize(String sql, byte[] bytes) {
+        return FuryFactory.getFuryFactory().deserialize(bytes);
+    }
 
 }
