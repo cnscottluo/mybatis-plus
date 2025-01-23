@@ -77,6 +77,7 @@ public abstract class AbstractCaffeineJsqlParseCache implements JsqlParseCache {
      * @param sql 执行 SQL
      * @return 返回泛型对象
      */
+    @SuppressWarnings("unchecked")
     protected <T> T get(String sql) {
         byte[] bytes = cache.getIfPresent(sql);
         if (null != bytes) {
@@ -97,14 +98,15 @@ public abstract class AbstractCaffeineJsqlParseCache implements JsqlParseCache {
      * @param value 解析对象
      */
     protected void put(String sql, Object value) {
+        final byte[] serialVal = serialize(value);
         if (async) {
             if (executor != null) {
-                CompletableFuture.runAsync(() -> cache.put(sql, serialize(value)), executor);
+                CompletableFuture.runAsync(() -> cache.put(sql, serialVal), executor);
             } else {
-                CompletableFuture.runAsync(() -> cache.put(sql, serialize(value)));
+                CompletableFuture.runAsync(() -> cache.put(sql, serialVal));
             }
         } else {
-            cache.put(sql, serialize(value));
+            cache.put(sql, serialVal);
         }
     }
 
