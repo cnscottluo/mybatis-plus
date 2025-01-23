@@ -5,9 +5,8 @@ import com.baomidou.mybatisplus.extension.parser.cache.FuryFactory;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
+import org.apache.fury.logging.LoggerFactory;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledOnJre;
-import org.junit.jupiter.api.condition.JRE;
 import org.springframework.util.SerializationUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,12 +24,16 @@ class JsqlParserSimpleSerialTest {
             "WHERE (e.id = ? OR e.NAME = ?)";
 
     @Test
-    @EnabledOnJre(JRE.JAVA_8)
     void test() throws JSQLParserException {
         System.out.println("循环次数: " + len);
+        System.out.println("--------------------------------------------------------------------------------");
         noSerial();
+        System.out.println("--------------------------------------------------------------------------------");
         jdkSerial();
-        fstSerial();
+        System.out.println("--------------------------------------------------------------------------------");
+//        fstSerial();
+        furySerial();
+        System.out.println("--------------------------------------------------------------------------------");
     }
 
     void noSerial() throws JSQLParserException {
@@ -93,6 +96,7 @@ class JsqlParserSimpleSerialTest {
     }
 
     void furySerial() throws JSQLParserException {
+        LoggerFactory.disableLogging();
         Statement statement = CCJSqlParserUtil.parse(sql);
         String target = statement.toString();
         FuryFactory factory = FuryFactory.getFuryFactory();
@@ -103,7 +107,7 @@ class JsqlParserSimpleSerialTest {
         }
         long endTime = System.currentTimeMillis();
         long et = endTime - startTime;
-        System.out.printf("fst serialize 执行耗时: %s 毫秒,byte大小: %s, 均耗时: %s%n", et, serial.length, (double) et / len);
+        System.out.printf("fury serialize 执行耗时: %s 毫秒,byte大小: %s, 均耗时: %s%n", et, serial.length, (double) et / len);
 
 
         startTime = System.currentTimeMillis();
@@ -112,9 +116,8 @@ class JsqlParserSimpleSerialTest {
         }
         endTime = System.currentTimeMillis();
         et = endTime - startTime;
-        System.out.printf("fst deserialize 执行耗时: %s 毫秒, 均耗时: %s%n", et, (double) et / len);
+        System.out.printf("fury deserialize 执行耗时: %s 毫秒, 均耗时: %s%n", et, (double) et / len);
         assertThat(statement).isNotNull();
         assertThat(statement.toString()).isEqualTo(target);
     }
-
 }
