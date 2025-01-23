@@ -25,14 +25,14 @@ import org.apache.fury.ThreadSafeFury;
  */
 public final class FuryFactory {
 
-	private static final FuryFactory FACTORY = new FuryFactory();
+    private static final FuryFactory FACTORY = new FuryFactory();
 
-	private final ThreadSafeFury FURY = Fury.builder()
+    private final ThreadSafeFury FURY = Fury.builder()
         // 开启异步编译
         .withAsyncCompilation(true)
         .buildThreadSafeFury();
 
-	public FuryFactory() {
+    public FuryFactory() {
         FURY.register(net.sf.jsqlparser.expression.Alias.class);
         FURY.register(net.sf.jsqlparser.expression.Alias.AliasColumn.class);
         FURY.register(net.sf.jsqlparser.expression.AllValue.class);
@@ -261,24 +261,24 @@ public final class FuryFactory {
         FURY.register(net.sf.jsqlparser.statement.select.MySqlSqlCacheFlags.class);
         FURY.register(net.sf.jsqlparser.statement.select.PlainSelect.BigQuerySelectQualifier.class);
         FURY.register(net.sf.jsqlparser.statement.update.UpdateModifierPriority.class);
-	}
+    }
 
-	public static FuryFactory getFuryFactory() {
-		return FACTORY;
-	}
+    public static FuryFactory getFuryFactory() {
+        return FACTORY;
+    }
 
-	public byte[] serialize(Object object) {
-		if (object == null) {
-			return new byte[0];
-		}
-		return FURY.serialize(object);
-	}
+    public byte[] serialize(Object object) {
+        if (object == null) {
+            return new byte[0];
+        }
+        return FURY.serialize(object);
+    }
 
-	public Object deserialize(byte[] bytes) {
-		if (bytes == null) {
-			return null;
-		}
-		return FURY.deserialize(bytes);
-	}
+    public Object deserialize(byte[] bytes) {
+        if (bytes == null) {
+            return null;
+        }
+        return FURY.deserialize(bytes);
+    }
 
 }
