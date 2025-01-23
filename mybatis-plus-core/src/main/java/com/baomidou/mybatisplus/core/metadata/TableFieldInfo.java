@@ -587,7 +587,7 @@ public class TableFieldInfo implements Constants {
         if (fieldStrategy == FieldStrategy.NEVER) {
             return null;
         }
-        if (isPrimitive || fieldStrategy == FieldStrategy.IGNORED || fieldStrategy == FieldStrategy.ALWAYS) {
+        if (isPrimitive || fieldStrategy == FieldStrategy.ALWAYS) {
             return sqlScript;
         }
         if (fieldStrategy == FieldStrategy.NOT_EMPTY && isCharSequence) {
