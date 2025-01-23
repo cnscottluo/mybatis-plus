@@ -1,6 +1,7 @@
 package com.baomidou.mybatisplus.test.extension.parser;
 
 import com.baomidou.mybatisplus.extension.parser.cache.FstFactory;
+import com.baomidou.mybatisplus.extension.parser.cache.FuryFactory;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
@@ -90,4 +91,30 @@ class JsqlParserSimpleSerialTest {
         assertThat(statement).isNotNull();
         assertThat(statement.toString()).isEqualTo(target);
     }
+
+    void furySerial() throws JSQLParserException {
+        Statement statement = CCJSqlParserUtil.parse(sql);
+        String target = statement.toString();
+        FuryFactory factory = FuryFactory.getFuryFactory();
+        byte[] serial = null;
+        long startTime = System.currentTimeMillis();
+        for (int i = 0; i < len; i++) {
+            serial = factory.serialize(statement);
+        }
+        long endTime = System.currentTimeMillis();
+        long et = endTime - startTime;
+        System.out.printf("fst serialize 执行耗时: %s 毫秒,byte大小: %s, 均耗时: %s%n", et, serial.length, (double) et / len);
+
+
+        startTime = System.currentTimeMillis();
+        for (int i = 0; i < len; i++) {
+            statement = (Statement) factory.deserialize(serial);
+        }
+        endTime = System.currentTimeMillis();
+        et = endTime - startTime;
+        System.out.printf("fst deserialize 执行耗时: %s 毫秒, 均耗时: %s%n", et, (double) et / len);
+        assertThat(statement).isNotNull();
+        assertThat(statement.toString()).isEqualTo(target);
+    }
+
 }
