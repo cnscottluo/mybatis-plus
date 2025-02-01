@@ -90,7 +90,8 @@ public class DeleteByIds extends AbstractMethod {
         sqlSet += StringPool.EMPTY + tableInfo.getLogicDeleteSql(false, false);
         return String.format(sqlMethod.getSql(), tableInfo.getTableName(),
             sqlSet, tableInfo.getKeyColumn(), SqlScriptUtils.convertForeach(
-                SqlScriptUtils.convertChoose("@org.apache.ibatis.type.SimpleTypeRegistry@isSimpleType(item.getClass())",
+                //TODO 待优化，看是否改成判断只使用实体（顺便考虑下子类）？？
+                SqlScriptUtils.convertChoose("@org.apache.ibatis.type.SimpleTypeRegistry@isSimpleType(item.getClass()) or (mpFillEt!=null and item.getClass() != mpFillEt.getClass())",
                     "#{item}", "#{item." + tableInfo.getKeyProperty() + "}"),
                 COLL, null, "item", COMMA),
             tableInfo.getLogicDeleteSql(true, true));
