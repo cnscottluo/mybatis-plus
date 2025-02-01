@@ -1,6 +1,7 @@
 package com.baomidou.mybatisplus.test.kotlin
 
 import com.baomidou.mybatisplus.core.metadata.IPage
+import com.baomidou.mybatisplus.extension.kotlin.KtQueryWrapper
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page
 import com.baomidou.mybatisplus.extension.toolkit.ChainWrappers
 import com.baomidou.mybatisplus.extension.toolkit.Db
@@ -52,6 +53,16 @@ class ChainWrappersTest : BaseDbTest<UserMapper>() {
         Assertions.assertTrue(
             ChainWrappers.ktUpdateChain(User::class.java).eq(User::id, 3).setSql("username = {0}", "haku").update()
         );
+    }
+
+    @Test
+    fun testSelectByPredicate() {
+        Assertions.assertDoesNotThrow { ChainWrappers.ktQueryChain(User::class.java).select({ true }).list() }
+        doTestAutoCommit(fun(m) {
+            Assertions.assertDoesNotThrow {
+                m.selectList(KtQueryWrapper(User()).select { true })
+            }
+        })
     }
 
     override fun tableDataSql(): String {

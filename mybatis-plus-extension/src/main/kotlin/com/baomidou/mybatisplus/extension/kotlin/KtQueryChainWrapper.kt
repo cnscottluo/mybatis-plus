@@ -55,6 +55,10 @@ open class KtQueryChainWrapper<T : Any>(
         return typedThis
     }
 
+    override fun select(predicate: Predicate<TableFieldInfo>): KtQueryChainWrapper<T> {
+        return select(entityClass, predicate)
+    }
+
     override fun select(entityClass: Class<T>, predicate: Predicate<TableFieldInfo>): KtQueryChainWrapper<T> {
         wrapperChildren.select(entityClass, predicate)
         return typedThis
