@@ -62,14 +62,17 @@ public class DeleteByIds extends AbstractMethod {
             return addUpdateMappedStatement(mapperClass, modelClass, methodName, sqlSource);
         } else {
             sqlMethod = SqlMethod.DELETE_BY_IDS;
-            sql = String.format(sqlMethod.getSql(), tableInfo.getTableName(), tableInfo.getKeyColumn(),
-                SqlScriptUtils.convertForeach(
-                    SqlScriptUtils.convertChoose("@org.apache.ibatis.type.SimpleTypeRegistry@isSimpleType(item.getClass())",
-                        "#{item}", "#{item." + tableInfo.getKeyProperty() + "}"),
-                    COLL, null, "item", COMMA));
+            sql = String.format(sqlMethod.getSql(), tableInfo.getTableName(), tableInfo.getKeyColumn(), getConvertForeachScript(tableInfo));
             SqlSource sqlSource = super.createSqlSource(configuration, sql, Object.class);
             return this.addDeleteMappedStatement(mapperClass, methodName, sqlSource);
         }
+    }
+
+    protected String getConvertForeachScript(TableInfo tableInfo) {
+        return SqlScriptUtils.convertForeach(
+            SqlScriptUtils.convertChoose("item!=null and @org.apache.ibatis.reflection.SystemMetaObject@forObject(item).findProperty('" + tableInfo.getKeyProperty() + "', false) != null",
+                "#{item." + tableInfo.getKeyProperty() + "}", "#{item}"),
+            COLL, null, "item", COMMA);
     }
 
     /**
@@ -89,12 +92,7 @@ public class DeleteByIds extends AbstractMethod {
         }
         sqlSet += StringPool.EMPTY + tableInfo.getLogicDeleteSql(false, false);
         return String.format(sqlMethod.getSql(), tableInfo.getTableName(),
-            sqlSet, tableInfo.getKeyColumn(), SqlScriptUtils.convertForeach(
-                //TODO 待优化，看是否改成判断只使用实体（顺便考虑下子类）？？
-                SqlScriptUtils.convertChoose("@org.apache.ibatis.type.SimpleTypeRegistry@isSimpleType(item.getClass()) or (mpFillEt!=null and item.getClass() != mpFillEt.getClass())",
-                    "#{item}", "#{item." + tableInfo.getKeyProperty() + "}"),
-                COLL, null, "item", COMMA),
-            tableInfo.getLogicDeleteSql(true, true));
+            sqlSet, tableInfo.getKeyColumn(), getConvertForeachScript(tableInfo), tableInfo.getLogicDeleteSql(true, true));
     }
 
 }
